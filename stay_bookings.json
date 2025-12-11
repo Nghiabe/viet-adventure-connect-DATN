@@ -1,0 +1,270 @@
+[
+  {
+    "id": "991e3c1d-6ad2-47c2-ad66-73d179382d73",
+    "hotelId": "2389848",
+    "hotelName": "Rom Casa Hostel Da Nang",
+    "providerUrl": "https://www.booking.comrom-casa-hostel-da-nang",
+    "checkin": "2025-11-30",
+    "checkout": "2025-12-01",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": 1264560,
+    "totalPrice": 1264560,
+    "raw": {
+      "hotel_id": "2389848",
+      "name": "Rom Casa Hostel Da Nang",
+      "display_location": "Danang",
+      "distance": "2.3 miles from downtown",
+      "address": "Lot 26 An Thuong 4 Street, My An Ward, Ngu Hanh Son District",
+      "price": {
+        "amount": "$52.69",
+        "currency": "USD",
+        "display": "$53 USD"
+      },
+      "rating": {
+        "score": 8.8,
+        "review_count": 294,
+        "display": "Excellent"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/238306286.webp?k=06aeb98e4946f2d90c1b476d06f7c415a1364851e6b4a82b84f7e3c18d7dc3fb&o=",
+      "url": "https://www.booking.comrom-casa-hostel-da-nang"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T18:25:09.558Z"
+  },
+  {
+    "id": "e942b77d-dcfa-4e93-90c9-29b5717b58aa",
+    "hotelId": "1395573",
+    "hotelName": "Mercure Danang French Village Bana Hills",
+    "providerUrl": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort",
+    "checkin": "2025-11-30",
+    "checkout": "2025-12-01",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": null,
+    "totalPrice": null,
+    "raw": {
+      "hotel_id": "1395573",
+      "name": "Mercure Danang French Village Bana Hills",
+      "display_location": "Danang",
+      "distance": "15.5 miles from downtown",
+      "address": "An Son Hamlet, Hoa Ninh Commune, Hoa Vang Dist",
+      "rating": {
+        "score": 7.9,
+        "review_count": 4066,
+        "display": "Good"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/764634431.webp?k=34ac55fb65a6e387b5808dc26816988229c6a960a1dcea669cb653052c3a6821&o=",
+      "url": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T18:23:40.446Z"
+  },
+  {
+    "id": "28de7edd-631f-4bf3-978d-1236fe513240",
+    "hotelId": "1395573",
+    "hotelName": "Mercure Danang French Village Bana Hills",
+    "providerUrl": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort",
+    "checkin": "2025-11-30",
+    "checkout": "2025-12-01",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": null,
+    "totalPrice": null,
+    "raw": {
+      "hotel_id": "1395573",
+      "name": "Mercure Danang French Village Bana Hills",
+      "display_location": "Danang",
+      "distance": "15.5 miles from downtown",
+      "address": "An Son Hamlet, Hoa Ninh Commune, Hoa Vang Dist",
+      "rating": {
+        "score": 7.9,
+        "review_count": 4066,
+        "display": "Good"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/764634431.webp?k=34ac55fb65a6e387b5808dc26816988229c6a960a1dcea669cb653052c3a6821&o=",
+      "url": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T18:14:59.781Z"
+  },
+  {
+    "id": "a5fc7c23-c947-43fd-8cd4-6594f1b8c42c",
+    "hotelId": "1395573",
+    "hotelName": "Mercure Danang French Village Bana Hills",
+    "providerUrl": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort",
+    "checkin": "2025-11-30",
+    "checkout": "2025-12-01",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": null,
+    "totalPrice": null,
+    "raw": {
+      "hotel_id": "1395573",
+      "name": "Mercure Danang French Village Bana Hills",
+      "display_location": "Danang",
+      "distance": "15.5 miles from downtown",
+      "address": "An Son Hamlet, Hoa Ninh Commune, Hoa Vang Dist",
+      "rating": {
+        "score": 7.9,
+        "review_count": 4066,
+        "display": "Good"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/764634431.webp?k=34ac55fb65a6e387b5808dc26816988229c6a960a1dcea669cb653052c3a6821&o=",
+      "url": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T18:01:39.413Z"
+  },
+  {
+    "id": "e82e6c96-1a5d-4d0f-b192-668096df174c",
+    "hotelId": "1395573",
+    "hotelName": "Mercure Danang French Village Bana Hills",
+    "providerUrl": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort",
+    "checkin": "2025-11-30",
+    "checkout": "2025-12-01",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": null,
+    "totalPrice": null,
+    "raw": {
+      "hotel_id": "1395573",
+      "name": "Mercure Danang French Village Bana Hills",
+      "display_location": "Danang",
+      "distance": "15.5 miles from downtown",
+      "address": "An Son Hamlet, Hoa Ninh Commune, Hoa Vang Dist",
+      "rating": {
+        "score": 7.9,
+        "review_count": 4066,
+        "display": "Good"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/764634431.webp?k=34ac55fb65a6e387b5808dc26816988229c6a960a1dcea669cb653052c3a6821&o=",
+      "url": "https://www.booking.comfrench-village-ba-na-hills-mountain-resort"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T18:01:22.608Z"
+  },
+  {
+    "id": "069dcea6-c059-4562-bcb2-73c8b78a62c8",
+    "hotelId": "15335576",
+    "hotelName": "Ony Retreat Villas",
+    "providerUrl": "https://www.booking.com/hotel/vn/ony-retreat-villas.html",
+    "checkin": "2025-11-29",
+    "checkout": "2025-11-30",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": 1264560,
+    "totalPrice": 1264560,
+    "raw": null,
+    "status": "provisional",
+    "createdAt": "2025-11-29T16:55:14.478Z"
+  },
+  {
+    "id": "af0a29a0-1710-4a64-950f-07e0a1317956",
+    "hotelId": "15335576",
+    "hotelName": "Ony Retreat Villas",
+    "providerUrl": "https://www.booking.comony-retreat-villas",
+    "checkin": "2025-11-30",
+    "checkout": "2025-12-01",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": 1264560,
+    "totalPrice": 1264560,
+    "raw": {
+      "hotel_id": "15335576",
+      "name": "Ony Retreat Villas",
+      "display_location": "Cam Thanh, Hoi An",
+      "distance": "2.2 miles from downtown",
+      "address": "Cẩm Thanh",
+      "price": {
+        "amount": "$52.69",
+        "currency": "USD",
+        "display": "$53 USD"
+      },
+      "rating": {
+        "score": 10,
+        "review_count": 7,
+        "display": "Exceptional"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/782581458.webp?k=fdbfc9943ebe2a95623c671a3e90fde9cbaf9d08f476454fc70958e7a4533bc0&o=",
+      "url": "https://www.booking.comony-retreat-villas"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T16:27:00.798Z"
+  },
+  {
+    "id": "abd516b6-a1c1-48e3-9ea9-70938bd64496",
+    "hotelId": "15335576",
+    "hotelName": "Ony Retreat Villas",
+    "providerUrl": "https://www.booking.comony-retreat-villas",
+    "checkin": "2025-11-29",
+    "checkout": "2025-11-30",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": 1264560,
+    "totalPrice": 1264560,
+    "raw": {
+      "hotel_id": "15335576",
+      "name": "Ony Retreat Villas",
+      "display_location": "Cam Thanh, Hoi An",
+      "distance": "2.2 miles from downtown",
+      "address": "Cẩm Thanh",
+      "price": {
+        "amount": "$52.69",
+        "currency": "USD",
+        "display": "$53 USD"
+      },
+      "rating": {
+        "score": 10,
+        "review_count": 7,
+        "display": "Exceptional"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/782581458.webp?k=fdbfc9943ebe2a95623c671a3e90fde9cbaf9d08f476454fc70958e7a4533bc0&o=",
+      "url": "https://www.booking.comony-retreat-villas"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T16:14:36.422Z"
+  },
+  {
+    "id": "9056c52c-c202-4cd2-843e-bd74a68c4d04",
+    "hotelId": "15335576",
+    "hotelName": "Ony Retreat Villas",
+    "providerUrl": "https://www.booking.comony-retreat-villas",
+    "checkin": "2025-11-29",
+    "checkout": "2025-11-30",
+    "guests": 2,
+    "bedType": "Double",
+    "nights": 1,
+    "unitPrice": 1264560,
+    "totalPrice": 1264560,
+    "raw": {
+      "hotel_id": "15335576",
+      "name": "Ony Retreat Villas",
+      "display_location": "Cam Thanh, Hoi An",
+      "distance": "2.2 miles from downtown",
+      "address": "Cẩm Thanh",
+      "price": {
+        "amount": "$52.69",
+        "currency": "USD",
+        "display": "$53 USD"
+      },
+      "rating": {
+        "score": 10,
+        "review_count": 7,
+        "display": "Exceptional"
+      },
+      "image_url": "https://cf.bstatic.com/xdata/images/hotel/square240/782581458.webp?k=fdbfc9943ebe2a95623c671a3e90fde9cbaf9d08f476454fc70958e7a4533bc0&o=",
+      "url": "https://www.booking.comony-retreat-villas"
+    },
+    "status": "provisional",
+    "createdAt": "2025-11-29T16:14:07.686Z"
+  }
+]

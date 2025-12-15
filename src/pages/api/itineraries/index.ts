@@ -27,7 +27,7 @@ export default withAuth(async function handler(req: AuthedRequest & IncomingMess
       });
 
       const data = JSON.parse(body || '{}');
-      
+
       // Validate required fields
       if (!data.name) {
         return send(res, 400, { success: false, error: 'Missing required field: name' });

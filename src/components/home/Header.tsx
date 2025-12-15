@@ -5,6 +5,7 @@ import { Menu } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AIWizardModal from "@/components/ai-planner/AIWizardModal";
 import { UserMenu } from "./UserMenu";
+import { NotificationMenu } from "./NotificationMenu";
 
 const NAV_ITEMS = [
   { label: "Điểm đến", href: "/" },
@@ -70,6 +71,7 @@ export const Header = () => {
           </div>
 
           <div className="hidden sm:flex items-center gap-4">
+            {user && <NotificationMenu />}
             <Button variant="default" className="hidden xl:inline-flex" onClick={() => setIsWizardOpen(true)}>Lập kế hoạch chuyến đi</Button>
 
             {!user ? (
@@ -88,6 +90,7 @@ export const Header = () => {
 
           {/* Mobile menu button and auth */}
           <div className="sm:hidden flex items-center gap-2">
+            {user && <NotificationMenu />}
             {!user ? (
               <Button variant="ghost" size="sm" onClick={handleLogin}>Đăng nhập</Button>
             ) : (

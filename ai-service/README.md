@@ -24,8 +24,15 @@ SERVICE_PORT=8081
 ```
 4. Run service:
 ```
+cd ai-service
+python -m venv .venv
+.\venv\Scripts\Activate.ps1
 # Option A: set app dir
 uvicorn main:app --app-dir src --host 0.0.0.0 --port 8081 --reload
+
+cd /d d:\TOTNGHIEP\viet-adventure-connect-main\ai-service
+venv\Scripts\activate
+python -m uvicorn main:app --app-dir src --host 0.0.0.0 --port 8081 --reload
 
 # Option B: set PYTHONPATH
 PYTHONPATH=src uvicorn main:app --host 0.0.0.0 --port 8081 --reload

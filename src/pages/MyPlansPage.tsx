@@ -139,6 +139,62 @@ const MyPlansPage: React.FC = () => {
         );
     }
 
+    // --- Invitation Logic ---
+    const [inviteData, setInviteData] = useState<{ token: string, planId: string, planName: string, ownerName: string } | null>(null);
+
+    useEffect(() => {
+        const checkInvite = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const inviteId = params.get('inviteId');
+            const planId = params.get('planId');
+
+            if (inviteId && planId && user) {
+                try {
+                    const res = await fetch(`/api/invitations/pending-by-token?token=${inviteId}&planId=${planId}`);
+                    const data = await res.json();
+                    if (data.success) {
+                        setInviteData({
+                            token: inviteId,
+                            planId,
+                            planName: data.data.planName,
+                            ownerName: data.data.ownerName
+                        });
+                        // Clean URL but keep state? Or just waiting for user action. 
+                        // To avoid re-triggering on refresh if accepted, we rely on the API check returning 404 or success.
+                    } else {
+                        toast({ title: "Thông báo", description: "Lời mời không hợp lệ hoặc đã hết hạn" });
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        };
+        checkInvite();
+    }, [user, location.search]); // location needs to be imported if not available, but window.location works for initial load
+
+    const handleAcceptInvite = async () => {
+        if (!inviteData) return;
+        try {
+            const res = await fetch('/api/invitations/accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: inviteData.token, planId: inviteData.planId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast({ title: "Thành công", description: "Bạn đã tham gia kế hoạch!" });
+                setInviteData(null);
+                // Remove query params
+                window.history.replaceState({}, '', '/my-plans');
+                loadItineraries(); // Refresh list to show new plan
+            } else {
+                toast({ variant: "destructive", title: "Lỗi", description: data.error || "Không thể chấp nhận lời mời" });
+            }
+        } catch (e) {
+            toast({ variant: "destructive", title: "Lỗi", description: "Lỗi kết nối" });
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Header />
@@ -153,6 +209,29 @@ const MyPlansPage: React.FC = () => {
                         <Plus className="h-5 w-5 mr-2" /> Tạo mới
                     </Button>
                 </div>
+
+                {/* Invitation Dialog */}
+                <AlertDialog open={!!inviteData} onOpenChange={(open) => !open && setInviteData(null)}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Lời mời tham gia kế hoạch</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                <strong>{inviteData?.ownerName}</strong> đã mời bạn tham gia vào kế hoạch <strong>"{inviteData?.planName}"</strong>.
+                                <br />
+                                Bạn có muốn chấp nhận lời mời này không?
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel onClick={() => {
+                                setInviteData(null);
+                                window.history.replaceState({}, '', '/my-plans');
+                            }}>Từ chối</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleAcceptInvite} className="bg-blue-600 hover:bg-blue-700">
+                                Chấp nhận
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 {/* Content */}
                 {loading ? (
@@ -208,6 +287,7 @@ const MyPlansPage: React.FC = () => {
                     isOpen={!!sharePlan}
                     onClose={() => setSharePlan(null)}
                     planName={sharePlan.name}
+                    planId={sharePlan._id}
                     onShare={() => {
                         // Just close, maybe refresh logic if needed
                         setSharePlan(null);

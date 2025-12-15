@@ -18,6 +18,9 @@ import Review from './src/models/Review';
 import Badge from './src/models/Badge';
 import UserBadge from './src/models/UserBadge';
 import dbConnect from './src/lib/dbConnect';
+import { shareApiPlugin } from './src/plugins/shareApiPlugin';
+import { notificationApiPlugin } from './src/plugins/notificationApiPlugin';
+
 
 // --- Data Definitions (Kept separate for clarity) ---
 const haLongBayData = {
@@ -3068,6 +3071,9 @@ export default defineConfig(({ mode }) => {
       mode === 'development' ? chatApiPlugin(env) : null,
       // NEW: Planner API plugin registered for dev mode
       mode === 'development' ? plannerApiPlugin(env) : null,
+      mode === 'development' ? shareApiPlugin() : null,
+      mode === 'development' ? notificationApiPlugin() : null,
+
     ].filter(Boolean) as any,
     server: {
       proxy: {

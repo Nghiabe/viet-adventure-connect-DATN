@@ -5,7 +5,11 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, MapPin, Calendar, Users, Hotel, CheckCircle, Sparkles, ArrowRight, ArrowLeft, Building2 } from "lucide-react";
+import { X, MapPin, Calendar, Users, Hotel, CheckCircle, Sparkles, ArrowRight, ArrowLeft, Building2, Palmtree, Mountain, Wheat, Landmark, Store, Utensils, Flower2, ShoppingBag, Music, Camera } from "lucide-react";
+
+// ... existing code ...
+
+
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +26,19 @@ interface AIWizardModalProps {
 }
 
 import { TRAVEL_STYLES, INTERESTS } from "@/data/constants";
+
+const interestIcons: Record<string, any> = {
+  "Bãi biển": Palmtree,
+  "Núi non": Mountain,
+  "Thành phố": Building2,
+  "Làng quê": Wheat,
+  "Chùa chiền": Landmark,
+  "Bảo tàng": Camera,
+  "Chợ đêm": Store,
+  "Ẩm thực đường phố": Utensils,
+  "Spa & Wellness": Flower2,
+  "Mua sắm": ShoppingBag
+};
 
 export const AIWizardModal = ({ isOpen, onClose }: AIWizardModalProps) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -413,30 +430,58 @@ export const AIWizardModal = ({ isOpen, onClose }: AIWizardModalProps) => {
       case 4:
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-300">
-            <StepHeader title="Sở Thích Cá Nhân" subtitle="Chọn những điều bạn quan tâm nhất (Chọn nhiều)." />
+            <StepHeader title="Sở Thích Cá Nhân" subtitle="Chọn những điều bạn quan tâm nhất để chúng tôi thiết kế lịch trình phù hợp (Chọn nhiều)." />
 
-            <div className="flex flex-wrap justify-center gap-3">
-              {INTERESTS.map(i => {
-                const selected = formData.interests.includes(i);
-                return (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      const newInt = selected ? formData.interests.filter(x => x !== i) : [...formData.interests, i];
-                      setFormData({ ...formData, interests: newInt });
-                    }}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border transform active:scale-95",
-                      selected
-                        ? "bg-primary text-white border-primary shadow-md translate-y-[-2px]"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                    )}
-                  >
-                    {selected && <CheckCircle className="inline-block w-3 h-3 mr-1.5 -mt-0.5" />}
-                    {i}
-                  </button>
-                )
-              })}
+            <ScrollArea className="h-[400px] pr-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-4">
+                {INTERESTS.map(i => {
+                  const selected = formData.interests.includes(i);
+                  const Icon = interestIcons[i] || Sparkles;
+
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => {
+                        const newInt = selected ? formData.interests.filter(x => x !== i) : [...formData.interests, i];
+                        setFormData({ ...formData, interests: newInt });
+                      }}
+                      className={cn(
+                        "group cursor-pointer relative p-4 rounded-2xl border-2 transition-all duration-300 hover:shadow-lg flex flex-col items-center justify-center gap-3 text-center h-40",
+                        selected
+                          ? "border-primary bg-primary/5 shadow-md scale-[1.02]"
+                          : "border-gray-100 bg-white hover:border-primary/40 hover:scale-[1.02]"
+                      )}
+                    >
+                      {/* Selection Check Circle */}
+                      <div className={cn(
+                        "absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
+                        selected ? "bg-primary text-white scale-100" : "bg-gray-100 text-gray-300 scale-90 opacity-0 group-hover:opacity-100"
+                      )}>
+                        <CheckCircle className="w-4 h-4" />
+                      </div>
+
+                      {/* Icon Background Blob */}
+                      <div className={cn(
+                        "w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300",
+                        selected ? "bg-white text-primary shadow-sm" : "bg-gray-50 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary"
+                      )}>
+                        <Icon className="w-7 h-7" />
+                      </div>
+
+                      <span className={cn(
+                        "font-semibold text-sm transition-colors",
+                        selected ? "text-primary" : "text-gray-600 group-hover:text-gray-900"
+                      )}>
+                        {i}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+
+            <div className="text-center text-sm text-gray-500">
+              Đã chọn: <span className="font-bold text-primary">{formData.interests.length}</span> sở thích
             </div>
           </div>
         )

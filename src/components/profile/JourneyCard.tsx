@@ -35,7 +35,7 @@ const JourneyCard = ({ journey }: JourneyCardProps) => {
   const { t } = useTranslation();
 
   return (
-    <Link to={`/dashboard/bookings/${journey._id}`}>
+    <Link to={`/profile/bookings/${journey._id}`}>
       <Card className="hover:shadow-md transition-shadow overflow-hidden text-left">
         {journey.tour?.mainImage && (
           <ResilientImage src={journey.tour.mainImage} alt={journey.tour.title} className="w-full h-40 object-cover" />

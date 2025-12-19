@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -29,11 +30,11 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
   Eye,
   MoreHorizontal,
   Filter
@@ -71,6 +72,7 @@ interface ToursResponse {
 }
 
 export default function PartnerToursPage() {
+  const navigate = useNavigate();
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,20 +116,23 @@ export default function PartnerToursPage() {
         page: currentPage.toString(),
         limit: '10'
       });
-      
+
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
       const response = await apiClient.get(`/partner/tours?${params}`);
-      if (response.success) {
-        setTours(response.data.tours);
-        setPagination(response.data.pagination);
+      if (response.success && response.data) {
+        setTours(response.data.tours || []);
+        setPagination(response.data.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
       } else {
-        setError('Failed to load tours');
+        setTours([]);
+        setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
       }
     } catch (err) {
       console.error('Error fetching tours:', err);
       setError('Failed to load tours');
+      setTours([]);
+      setPagination({ page: 1, limit: 10, total: 0, pages: 0 });
     } finally {
       setLoading(false);
     }
@@ -269,102 +274,13 @@ export default function PartnerToursPage() {
             Tạo và quản lý các tour của bạn
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm Tour
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Tạo Tour Mới</DialogTitle>
-              <DialogDescription>
-                Điền thông tin để tạo tour mới
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Tên Tour *</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Nhập tên tour"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="price">Giá (VND) *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="Nhập giá tour"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="duration">Thời gian *</Label>
-                  <Input
-                    id="duration"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                    placeholder="VD: 3 ngày 2 đêm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxGroupSize">Số người tối đa</Label>
-                  <Input
-                    id="maxGroupSize"
-                    type="number"
-                    value={formData.maxGroupSize}
-                    onChange={(e) => setFormData({ ...formData, maxGroupSize: e.target.value })}
-                    placeholder="Nhập số người tối đa"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Mô tả</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Mô tả chi tiết về tour"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="inclusions">Bao gồm (mỗi dòng một mục)</Label>
-                <Textarea
-                  id="inclusions"
-                  value={formData.inclusions}
-                  onChange={(e) => setFormData({ ...formData, inclusions: e.target.value })}
-                  placeholder="Vé tham quan&#10;Hướng dẫn viên&#10;Ăn sáng"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="exclusions">Không bao gồm (mỗi dòng một mục)</Label>
-                <Textarea
-                  id="exclusions"
-                  value={formData.exclusions}
-                  onChange={(e) => setFormData({ ...formData, exclusions: e.target.value })}
-                  placeholder="Chi phí cá nhân&#10;Bảo hiểm&#10;Tip"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Hủy
-              </Button>
-              <Button onClick={handleCreateTour}>Tạo Tour</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button onClick={() => navigate('/dashboard/tours/edit/new')} className="flex items-center gap-2">
+            <Plus className="mr-2 h-4 w-4" />
+            Thêm Tour
+          </Button>
+        </div>
+
       </div>
 
       {/* Filters */}
@@ -403,7 +319,7 @@ export default function PartnerToursPage() {
       {/* Tours Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách Tour ({pagination.total})</CardTitle>
+          <CardTitle>Danh sách Tour ({pagination?.total || 0})</CardTitle>
           <CardDescription>
             Quản lý tất cả tour của bạn
           </CardDescription>
@@ -426,7 +342,7 @@ export default function PartnerToursPage() {
                 {tours.map((tour) => (
                   <TableRow key={tour._id}>
                     <TableCell className="font-medium">{tour.title}</TableCell>
-                    <TableCell>{tour.destination.name}</TableCell>
+                    <TableCell>{tour.destination?.name || 'Chưa cập nhật'}</TableCell>
                     <TableCell>
                       {new Intl.NumberFormat('vi-VN', {
                         style: 'currency',
@@ -563,6 +479,6 @@ export default function PartnerToursPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

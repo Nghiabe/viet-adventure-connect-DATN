@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -18,8 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  Search, 
+import {
+  Search,
   Filter,
   Calendar,
   User,
@@ -101,7 +101,7 @@ export default function PartnerBookingsPage() {
         page: currentPage.toString(),
         limit: '10'
       });
-      
+
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (tourFilter !== 'all') params.append('tourId', tourFilter);
@@ -199,7 +199,7 @@ export default function PartnerBookingsPage() {
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Trạng thái</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>

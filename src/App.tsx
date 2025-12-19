@@ -23,6 +23,7 @@ import FlightsResultsPage from "./pages/search/FlightsResultsPage";
 import ExperienceDetail from "./pages/ExperienceDetail";
 import CheckoutPage from "./pages/CheckoutPage";
 import BookingSuccessPage from "./pages/BookingSuccessPage";
+import BookingDetailPage from "./pages/BookingDetailPage";
 import TransportationHub from "./pages/TransportationHub";
 import CommunityHub from "./pages/CommunityHub";
 import MobileAppLanding from "./pages/MobileAppLanding";
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="/itinerary-detail" element={<ItineraryDetailPage />} />
                 <Route path="/profile" element={<UserProfile />} />
                 <Route path="/profile/settings" element={<SettingsPage />} />
+                <Route path="/profile/bookings/:id" element={<BookingDetailPage />} />
                 <Route path="/tours" element={<ToursSearch />} />
                 <Route path="/tours/search" element={<ToursSearch />} />
                 <Route path="/hotels/search" element={<HotelSearchResultsPage />} />

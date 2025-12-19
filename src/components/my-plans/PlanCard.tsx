@@ -37,7 +37,7 @@ export const PlanCard = ({ plan, onView, onShare, onDelete, onStart }: PlanCardP
             return new Date(dateStr).toLocaleDateString('vi-VN');
         } catch { return dateStr; }
     };
-
+    
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };

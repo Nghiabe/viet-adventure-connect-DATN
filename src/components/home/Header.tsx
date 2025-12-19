@@ -8,7 +8,7 @@ import { UserMenu } from "./UserMenu";
 import { NotificationMenu } from "./NotificationMenu";
 
 const NAV_ITEMS = [
-  { label: "Điểm đến", href: "/" },
+  { label: "Trang chủ", href: "/" },
   { label: "Tours & Trải nghiệm", href: "/tours/search" },
   { label: "Kế hoạch của tôi", href: "/my-plans" },
   { label: "Vé di chuyển", href: "/transportation" },

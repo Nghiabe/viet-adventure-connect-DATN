@@ -10,7 +10,7 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-export default withRole(['user','partner'], async function handler(req: AuthedRequest, res: ServerResponse) {
+export default withRole(['user', 'partner'], async function handler(req: AuthedRequest, res: ServerResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return send(res, 405, { success: false, error: `Method ${req.method} Not Allowed` });

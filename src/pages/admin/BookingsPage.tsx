@@ -14,10 +14,9 @@ import { useTranslation } from 'react-i18next';
 import { formatCurrencyVND, formatDate } from '@/utils/format';
 import { translateStatus } from '@/utils/translation';
 
-type ViewMode = 'table' | 'kanban';
 
 async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers||{}) } });
+  const res = await fetch(input, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
   if (!res.ok) throw new Error(await res.text());
   return res.json() as any;
 }
@@ -33,7 +32,7 @@ const statusColor: Record<string, { className: string }> = {
 export default function BookingsPage() {
   const qc = useQueryClient();
   const { t } = useTranslation();
-  
+
   // Consolidated filter state - single source of truth
   const [filters, setFilters] = useState({
     search: '',
@@ -41,12 +40,11 @@ export default function BookingsPage() {
     page: 1,
     limit: 50
   });
-  
-  const [view, setView] = useState<ViewMode>('table');
+
 
   // Unified filter change handler
   const handleFilterChange = (filterName: string, value: string | number) => {
-    setFilters(prevFilters => ({
+    setFilters((prevFilters: any) => ({
       ...prevFilters,
       [filterName]: value,
       // Reset page to 1 on any filter change except pagination itself
@@ -60,10 +58,10 @@ export default function BookingsPage() {
       page: filters.page.toString(),
       limit: filters.limit.toString(),
     });
-    
+
     if (filters.search) params.set('q', filters.search);
     if (filters.status !== 'all') params.set('status', filters.status);
-    
+
     return params.toString();
   }, [filters]);
 
@@ -77,9 +75,9 @@ export default function BookingsPage() {
       }
       return response;
     },
-    keepPreviousData: true, // UX improvement to prevent UI flashing during pagination
+    placeholderData: (prev) => prev, // UX improvement to prevent UI flashing during pagination
   });
-  
+
   const rows = (data?.data || []) as any[];
 
   const statusMutation = useMutation({
@@ -90,15 +88,15 @@ export default function BookingsPage() {
   });
 
   function exportCsv() {
-    const header = [t('admin_bookings.columns.booking_id'),t('admin_bookings.columns.status'),t('admin_bookings.columns.tour'),t('admin_bookings.columns.customer'),t('common.email'),t('admin_bookings.columns.tour_date'),t('admin_bookings.columns.booking_date'),t('admin_bookings.columns.total_price')];
-    const lines = rows.map((r)=> [
+    const header = [t('admin_bookings.columns.booking_id'), t('admin_bookings.columns.status'), t('admin_bookings.columns.tour'), t('admin_bookings.columns.customer'), t('common.email'), t('admin_bookings.columns.tour_date'), t('admin_bookings.columns.booking_date'), t('admin_bookings.columns.total_price')];
+    const lines = rows.map((r) => [
       r._id,
       r.status,
       r.tour?.title || r.tourInfo?.title || '',
       r.user?.name || '',
       r.user?.email || '',
-      r.bookingDate ? new Date(r.bookingDate).toISOString().slice(0,10) : '',
-      r.createdAt ? new Date(r.createdAt).toISOString().slice(0,10) : '',
+      r.bookingDate ? new Date(r.bookingDate).toISOString().slice(0, 10) : '',
+      r.createdAt ? new Date(r.createdAt).toISOString().slice(0, 10) : '',
       String(r.totalPrice || 0),
     ].join(','));
     const csv = [header.join(','), ...lines].join('\n');
@@ -114,18 +112,14 @@ export default function BookingsPage() {
           <div className="text-2xl font-semibold">{t('admin_bookings.title')}</div>
           <div className="text-sm text-muted-foreground">{t('admin_bookings.subtitle')}</div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant={view==='table' ? 'default' : 'outline'} onClick={()=>setView('table')}>{t('admin_bookings.table_view')}</Button>
-          <Button variant={view==='kanban' ? 'default' : 'outline'} onClick={()=>setView('kanban')}>{t('admin_bookings.kanban_view')}</Button>
-        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Input 
-          placeholder={t('admin_bookings.search_placeholder')} 
-          value={filters.search} 
-          onChange={(e) => handleFilterChange('search', e.target.value)} 
-          className="w-64" 
+        <Input
+          placeholder={t('admin_bookings.search_placeholder')}
+          value={filters.search}
+          onChange={(e) => handleFilterChange('search', e.target.value)}
+          className="w-64"
         />
         <Select onValueChange={(v) => handleFilterChange('status', v)}>
           <SelectTrigger className="w-40">
@@ -133,7 +127,7 @@ export default function BookingsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('common.all_statuses')}</SelectItem>
-            {['pending','confirmed','completed','cancelled','refunded'].map(s => (
+            {['pending', 'confirmed', 'completed', 'cancelled', 'refunded'].map(s => (
               <SelectItem key={s} value={s}>{translateStatus(s, t)}</SelectItem>
             ))}
           </SelectContent>
@@ -141,86 +135,57 @@ export default function BookingsPage() {
         <Button variant="outline" onClick={exportCsv}>{t('admin_bookings.export_csv')}</Button>
       </div>
 
-      {view === 'table' ? (
-        <div className="w-full overflow-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2 px-3">{t('admin_bookings.columns.booking_id')}</th>
-                <th className="py-2 px-3">{t('admin_bookings.columns.status')}</th>
-                <th className="py-2 px-3">{t('admin_bookings.columns.tour')}</th>
-                <th className="py-2 px-3">{t('admin_bookings.columns.customer')}</th>
-                <th className="py-2 px-3">{t('admin_bookings.columns.tour_date')}</th>
-                <th className="py-2 px-3">{t('admin_bookings.columns.booking_date')}</th>
-                <th className="py-2 px-3">{t('admin_bookings.columns.total_price')}</th>
-                <th className="py-2 px-3" />
+      <div className="w-full overflow-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left border-b">
+              <th className="py-2 px-3">{t('admin_bookings.columns.booking_id')}</th>
+              <th className="py-2 px-3">{t('admin_bookings.columns.status')}</th>
+              <th className="py-2 px-3">{t('admin_bookings.columns.tour')}</th>
+              <th className="py-2 px-3">{t('admin_bookings.columns.customer')}</th>
+              <th className="py-2 px-3">{t('admin_bookings.columns.tour_date')}</th>
+              <th className="py-2 px-3">{t('admin_bookings.columns.booking_date')}</th>
+              <th className="py-2 px-3">{t('admin_bookings.columns.total_price')}</th>
+              <th className="py-2 px-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r._id} className="border-b hover:bg-muted/30">
+                <td className="py-2 px-3 font-mono">#BK-{String(r._id).slice(-6)}</td>
+                <td className="py-2 px-3"><span className={`px-2 py-1 rounded-full text-xs ${statusColor[r.status]?.className || ''}`}>{translateStatus(r.status, t)}</span></td>
+                <td className="py-2 px-3">
+                  <div className="font-medium">{r.tour?.title || r.tourInfo?.title}</div>
+                  <div className="text-xs text-muted-foreground">by {r.owner?.name || r.tour?.owner?.name || '—'}</div>
+                </td>
+                <td className="py-2 px-3">
+                  <div className="font-medium">{r.user?.name}</div>
+                  <div className="text-xs text-muted-foreground">{r.user?.email}</div>
+                </td>
+                <td className="py-2 px-3">{formatDate(r.bookingDate)}</td>
+                <td className="py-2 px-3">{formatDate(r.createdAt)}</td>
+                <td className="py-2 px-3">{formatCurrencyVND(r.totalPrice)}</td>
+                <td className="py-2 px-3 text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <a href={`/dashboard/bookings/${r._id}`}>{t('admin_bookings.actions.view_details')}</a>
+                      </DropdownMenuItem>
+                      {r.status !== 'cancelled' && (
+                        <DropdownMenuItem onClick={() => statusMutation.mutate({ id: r._id, next: 'cancelled' })}>{t('admin_bookings.actions.cancel_booking')}</DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((r)=> (
-                <tr key={r._id} className="border-b hover:bg-muted/30">
-                  <td className="py-2 px-3 font-mono">#BK-{String(r._id).slice(-6)}</td>
-                  <td className="py-2 px-3"><span className={`px-2 py-1 rounded-full text-xs ${statusColor[r.status]?.className || ''}`}>{translateStatus(r.status, t)}</span></td>
-                  <td className="py-2 px-3">
-                    <div className="font-medium">{r.tour?.title || r.tourInfo?.title}</div>
-                    <div className="text-xs text-muted-foreground">by {r.owner?.name || r.tour?.owner?.name || '—'}</div>
-                  </td>
-                  <td className="py-2 px-3">
-                    <div className="font-medium">{r.user?.name}</div>
-                    <div className="text-xs text-muted-foreground">{r.user?.email}</div>
-                  </td>
-                  <td className="py-2 px-3">{formatDate(r.bookingDate)}</td>
-                  <td className="py-2 px-3">{formatDate(r.createdAt)}</td>
-                  <td className="py-2 px-3">{formatCurrencyVND(r.totalPrice)}</td>
-                  <td className="py-2 px-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <a href={`/dashboard/bookings/${r._id}`}>{t('admin_bookings.actions.view_details')}</a>
-                        </DropdownMenuItem>
-                        {r.status === 'pending' && (
-                          <DropdownMenuItem onClick={()=> statusMutation.mutate({ id: r._id, next: 'confirmed' })}>{t('admin_bookings.actions.confirm_booking')}</DropdownMenuItem>
-                        )}
-                        {r.status !== 'cancelled' && (
-                          <DropdownMenuItem onClick={()=> statusMutation.mutate({ id: r._id, next: 'cancelled' })}>{t('admin_bookings.actions.cancel_booking')}</DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {['pending','confirmed','completed','cancelled'].map((col)=> (
-            <div
-              key={col}
-              className="space-y-3"
-              onDragOver={(e)=> e.preventDefault()}
-              onDrop={(e)=> {
-                const id = e.dataTransfer.getData('text/plain');
-                if (id) statusMutation.mutate({ id, next: col });
-              }}
-            >
-              <div className="font-semibold">{translateStatus(col, t)}</div>
-              {(rows.filter((r)=> r.status === col)).map((r)=> (
-                <Card key={r._id} className="p-3" draggable onDragStart={(e)=> e.dataTransfer.setData('text/plain', r._id)}>
-                  <div className="font-medium line-clamp-2">{r.tour?.title || r.tourInfo?.title}</div>
-                  <div className="text-xs text-muted-foreground">{r.user?.name}</div>
-                  <div className="text-xs mt-1">{r.bookingDate ? new Date(r.bookingDate).toLocaleDateString() : ''}</div>
-                  <div className="text-xs font-mono">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(r.totalPrice || 0)}</div>
-                </Card>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div >
   );
 }
 

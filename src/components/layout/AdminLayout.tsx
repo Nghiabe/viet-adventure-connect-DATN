@@ -44,6 +44,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/services">{t('admin_sidebar.services', 'Dịch vụ')}</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
                     <NavLink to="/dashboard/moderation">{t('admin_sidebar.moderation')}</NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -87,7 +92,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/services">Dịch vụ của tôi</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
                     <NavLink to="/dashboard/bookings">Đơn đặt của tôi</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/marketing">Marketing</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/analytics">Phân tích</NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
@@ -95,9 +115,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <NavLink to="/dashboard/reviews">Đánh giá</NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/profile">Hồ sơ Doanh nghiệp</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/settings">Cài đặt & Tài chính</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </>
             )}
-            
+
             {/* Logout button at the bottom */}
             <div className="mt-auto border-t pt-4">
               <SidebarMenuItem>

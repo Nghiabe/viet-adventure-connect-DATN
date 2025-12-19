@@ -48,13 +48,13 @@ interface ToursResponse {
   };
 }
 
-function StatusTag({ status }: { status: 'published'|'draft'|'archived' }) {
+function StatusTag({ status }: { status: 'published' | 'draft' | 'archived' }) {
   const statusConfig = {
     published: { bg: 'bg-green-500/20', text: 'text-green-300', label: 'Đã xuất bản' },
     draft: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', label: 'Bản nháp' },
     archived: { bg: 'bg-gray-500/20', text: 'text-gray-300', label: 'Đã lưu trữ' }
   };
-  
+
   const config = statusConfig[status];
   return (
     <span className={`px-2 py-1 rounded text-xs ${config.bg} ${config.text}`}>
@@ -72,19 +72,19 @@ function ErrorMessage({ message }: { message: string }) {
   );
 }
 
-function Pagination({ pagination, onPageChange }: { 
-  pagination: PaginationInfo; 
+function Pagination({ pagination, onPageChange }: {
+  pagination: PaginationInfo;
   onPageChange: (page: number) => void;
 }) {
   const { currentPage, totalPages } = pagination;
-  
+
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
-  
+
   const pageNumbers = [];
   const startPage = Math.max(1, currentPage - 2);
   const endPage = Math.min(totalPages, currentPage + 2);
-  
+
   for (let i = startPage; i <= endPage; i++) {
     pageNumbers.push(i);
   }
@@ -94,7 +94,7 @@ function Pagination({ pagination, onPageChange }: {
       <div className="text-sm text-muted-foreground">
         Trang {currentPage} của {totalPages} ({pagination.totalTours} tours)
       </div>
-      
+
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
@@ -105,7 +105,7 @@ function Pagination({ pagination, onPageChange }: {
           <ChevronLeft className="h-4 w-4" />
           Trước
         </Button>
-        
+
         {pageNumbers.map(page => (
           <Button
             key={page}
@@ -117,7 +117,7 @@ function Pagination({ pagination, onPageChange }: {
             {page}
           </Button>
         ))}
-        
+
         <Button
           variant="outline"
           size="sm"
@@ -140,7 +140,7 @@ export default function ToursPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [limit] = useState(10);
-  
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -159,7 +159,7 @@ export default function ToursPage() {
     queryKey: ['adminTours', queryParams],
     queryFn: async (): Promise<ToursResponse> => {
       const params = new URLSearchParams();
-      
+
       if (searchTerm) params.set('search', searchTerm);
       if (destinationId) params.set('destinationId', destinationId);
       if (ownerId) params.set('ownerId', ownerId);
@@ -169,11 +169,11 @@ export default function ToursPage() {
 
       // Use the centralized, robust API client with correct endpoint
       const response = await apiClient.get(`/admin/tours?${params.toString()}`);
-      
+
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Failed to load tours');
       }
-      
+
       return response as ToursResponse;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -225,11 +225,8 @@ export default function ToursPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Quản lý Tours</h1>
-          <p className="text-muted-foreground">Quản lý tất cả tours trong hệ thống</p>
+          <p className="text-muted-foreground">Quản lý và kiểm duyệt tours trong hệ thống</p>
         </div>
-        <Button onClick={() => navigate('/dashboard/tours/edit/new')} className="flex items-center gap-2">
-          + Thêm Tour
-        </Button>
       </div>
 
       {/* Filters */}
@@ -247,7 +244,7 @@ export default function ToursPage() {
               className="flex-1"
             />
           </div>
-          
+
           <Input
             placeholder="ID Điểm đến"
             value={destinationId}
@@ -257,7 +254,7 @@ export default function ToursPage() {
             }}
             className="w-[160px]"
           />
-          
+
           <Input
             placeholder="ID Chủ tour"
             value={ownerId}
@@ -267,7 +264,7 @@ export default function ToursPage() {
             }}
             className="w-[160px]"
           />
-          
+
           <select
             className="bg-background border border-border rounded px-3 py-2 text-sm"
             value={statusFilter}
@@ -281,7 +278,7 @@ export default function ToursPage() {
             <option value="draft">Bản nháp</option>
             <option value="archived">Đã lưu trữ</option>
           </select>
-          
+
           <Button
             variant="outline"
             onClick={() => {
@@ -336,8 +333,8 @@ export default function ToursPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-[60px] h-[40px] bg-secondary rounded overflow-hidden">
                           {tour.mainImage ? (
-                            <img 
-                              src={tour.mainImage} 
+                            <img
+                              src={tour.mainImage}
                               alt={tour.title}
                               className="w-full h-full object-cover"
                             />
@@ -396,19 +393,8 @@ export default function ToursPage() {
                               Xem trên site
                             </a>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to={`/dashboard/tours/edit/${tour._id}`}>
-                              Chỉnh sửa
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => cloneMutation.mutate(tour._id)}
-                            disabled={cloneMutation.isPending}
-                          >
-                            {cloneMutation.isPending ? 'Đang nhân bản...' : 'Nhân bản'}
-                          </DropdownMenuItem>
                           <DropdownMenuItem>Lưu trữ</DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="text-red-500"
                             onClick={() => {
                               if (confirm('Bạn có chắc chắn muốn xóa tour này?')) {
@@ -428,7 +414,7 @@ export default function ToursPage() {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         {toursQuery.data?.data.pagination && toursQuery.data.data.pagination.totalPages > 1 && (
           <Pagination

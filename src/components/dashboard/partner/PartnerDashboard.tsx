@@ -2,16 +2,23 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  TrendingUp, 
-  Users, 
-  Star, 
-  DollarSign, 
+import {
+  TrendingUp,
+  Users,
+  Star,
+  DollarSign,
   Calendar,
   Eye,
   Plus,
-  BarChart3
+  BarChart3,
+  Search,
+  Filter,
+  PieChart as PieChartIcon,
+  Download
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Link } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
 
@@ -51,23 +58,50 @@ export default function PartnerDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState('30d');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // Debounce search
+    const timer = setTimeout(() => {
+      fetchDashboardData();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [dateRange, searchQuery]);
 
   const fetchDashboardData = async () => {
+    const emptyData: DashboardData = {
+      kpis: {
+        totalTours: 0,
+        publishedTours: 0,
+        totalBookings: 0,
+        confirmedBookings: 0,
+        totalRevenue: 0,
+        averageRating: 0,
+        totalReviews: 0,
+      },
+      recentBookings: [],
+      monthlyRevenue: [],
+      tours: [],
+    };
+
     try {
       setLoading(true);
-      const response = await apiClient.get('/partner/dashboard');
-      if (response.success) {
+      const queryParams = new URLSearchParams({
+        range: dateRange,
+        search: searchQuery
+      });
+      const response = await apiClient.get(`/partner/dashboard?${queryParams.toString()}`);
+      if (response && response.success && response.data) {
         setData(response.data);
       } else {
-        setError('Failed to load dashboard data');
+        // If no data or success false, fallback to 0s
+        setData(emptyData);
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data');
+      // On error, fallback to 0s
+      setData(emptyData);
     } finally {
       setLoading(false);
     }
@@ -93,32 +127,74 @@ export default function PartnerDashboard() {
   }
 
   if (!data) return null;
+  if (!data) return null;
 
-  const { kpis, recentBookings, monthlyRevenue, tours } = data;
+  // Defensive destructuring with defaults
+  const kpis = data.kpis || {
+    totalTours: 0,
+    publishedTours: 0,
+    totalBookings: 0,
+    confirmedBookings: 0,
+    totalRevenue: 0,
+    averageRating: 0,
+    totalReviews: 0
+  };
+  const recentBookings = data.recentBookings || [];
+  const monthlyRevenue = data.monthlyRevenue || [];
+  const tours = data.tours || [];
+
+  // Format data for charts safely
+  const revenueChartData = monthlyRevenue.map(item => {
+    if (!item || !item._id) return { name: 'Unknown', revenue: 0, bookings: 0 };
+    return {
+      name: `Tháng ${item._id.month || '?'}/${item._id.year || '?'}`,
+      revenue: item.revenue || 0,
+      bookings: item.bookings || 0
+    };
+  });
+
+  // Booking Status Data for Pie Chart
+  const bookingStatusData = [
+    { name: 'Đã xác nhận', value: kpis.confirmedBookings || 0, color: '#22c55e' }, // green-500
+    { name: 'Chờ xác nhận', value: (kpis.totalBookings || 0) - (kpis.confirmedBookings || 0), color: '#eab308' }, // yellow-500
+  ].filter(item => item.value > 0);
+
+  // Status colors for PieChart
+  const COLORS = ['#22c55e', '#eab308', '#ef4444'];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Bảng điều khiển Đối tác</h1>
           <p className="text-muted-foreground">
             Quản lý tour và theo dõi hiệu suất kinh doanh của bạn
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link to="/dashboard/my-tours">
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm Tour
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/dashboard/my-tours">
-              <Eye className="mr-2 h-4 w-4" />
-              Xem tất cả
-            </Link>
-          </Button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm kiếm tour..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+
+          <Select value={dateRange} onValueChange={setDateRange}>
+            <SelectTrigger className="w-[180px]">
+              <Calendar className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="Chọn thời gian" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">7 ngày qua</SelectItem>
+              <SelectItem value="30d">30 ngày qua</SelectItem>
+              <SelectItem value="1y">1 năm qua</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -215,15 +291,15 @@ export default function PartnerDashboard() {
                           currency: 'VND'
                         }).format(booking.totalPrice)}
                       </p>
-                      <Badge 
+                      <Badge
                         variant={
                           booking.status === 'confirmed' ? 'default' :
-                          booking.status === 'pending' ? 'secondary' : 'destructive'
+                            booking.status === 'pending' ? 'secondary' : 'destructive'
                         }
                       >
                         {booking.status === 'confirmed' ? 'Đã xác nhận' :
-                         booking.status === 'pending' ? 'Chờ xác nhận' :
-                         booking.status === 'cancelled' ? 'Đã hủy' : booking.status}
+                          booking.status === 'pending' ? 'Chờ xác nhận' :
+                            booking.status === 'cancelled' ? 'Đã hủy' : booking.status}
                       </Badge>
                     </div>
                   </div>
@@ -260,14 +336,14 @@ export default function PartnerDashboard() {
                       }).format(tour.price)}
                     </p>
                   </div>
-                  <Badge 
+                  <Badge
                     variant={
                       tour.status === 'published' ? 'default' :
-                      tour.status === 'draft' ? 'secondary' : 'outline'
+                        tour.status === 'draft' ? 'secondary' : 'outline'
                     }
                   >
                     {tour.status === 'published' ? 'Đã xuất bản' :
-                     tour.status === 'draft' ? 'Bản nháp' : 'Lưu trữ'}
+                      tour.status === 'draft' ? 'Bản nháp' : 'Lưu trữ'}
                   </Badge>
                 </div>
               ))}
@@ -281,31 +357,84 @@ export default function PartnerDashboard() {
         </Card>
       </div>
 
-      {/* Monthly Revenue Chart Placeholder */}
-      {monthlyRevenue.length > 0 && (
-        <Card>
+      {/* Charts Section */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Revenue Chart */}
+        <Card className="col-span-1">
           <CardHeader>
-            <CardTitle>Doanh thu theo tháng</CardTitle>
+            <CardTitle>Biểu đồ doanh thu</CardTitle>
             <CardDescription>
-              Biểu đồ doanh thu 6 tháng gần đây
+              Doanh thu theo tháng
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <BarChart3 className="h-12 w-12 mx-auto mb-2" />
-                <p>Biểu đồ doanh thu sẽ được hiển thị ở đây</p>
-                <p className="text-sm">
-                  Tổng doanh thu: {new Intl.NumberFormat('vi-VN', {
-                    style: 'currency',
-                    currency: 'VND'
-                  }).format(monthlyRevenue.reduce((sum, month) => sum + month.revenue, 0))}
-                </p>
-              </div>
+          <CardContent className="pl-2">
+            <div className="h-[300px] w-full">
+              {revenueChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${new Intl.NumberFormat('vi-VN', { notation: 'compact' }).format(value)}đ`}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)}
+                      labelStyle={{ color: 'black' }}
+                    />
+                    <Bar dataKey="revenue" fill="#0f172a" radius={[4, 4, 0, 0]} name="Doanh thu" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Chưa có dữ liệu doanh thu
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
-      )}
+
+        {/* Booking Status Chart */}
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Trạng thái đặt tour</CardTitle>
+            <CardDescription>
+              Tỷ lệ xác nhận và chờ xử lý
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              {bookingStatusData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={bookingStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {bookingStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  Chưa có dữ liệu đặt tour
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

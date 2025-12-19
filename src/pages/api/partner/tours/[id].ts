@@ -11,7 +11,7 @@ function send(res: ServerResponse, status: number, body: unknown) {
 
 async function handler(req: AuthedRequest, res: ServerResponse) {
   await dbConnect();
-  
+
   const userId = req.user!.userId;
   const tourId = req.url?.split('/').pop();
 
@@ -22,7 +22,7 @@ async function handler(req: AuthedRequest, res: ServerResponse) {
   try {
     // First verify the tour belongs to the partner
     const tour = await Tour.findOne({ _id: tourId, owner: userId });
-    
+
     if (!tour) {
       return send(res, 404, { success: false, error: 'Tour not found or access denied' });
     }
@@ -36,13 +36,13 @@ async function handler(req: AuthedRequest, res: ServerResponse) {
       const updateData = { ...req.body };
       delete updateData.owner; // Prevent changing ownership
       delete updateData._id; // Prevent changing ID
-      
+
       const updatedTour = await Tour.findByIdAndUpdate(
         tourId,
         updateData,
         { new: true, runValidators: true }
       ).populate('destination', 'name slug');
-      
+
       return send(res, 200, { success: true, data: updatedTour });
     }
 

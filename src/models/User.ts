@@ -25,7 +25,7 @@ export interface UserDocument extends Document {
   createPasswordResetToken(): string;
 }
 
-export interface UserModel extends Model<UserDocument> {}
+export interface UserModel extends Model<UserDocument> { }
 
 const UserSchema = new Schema<UserDocument>(
   {
@@ -50,15 +50,15 @@ const UserSchema = new Schema<UserDocument>(
 // Password hashing
 UserSchema.pre('save', async function (next) {
   const user = this as UserDocument;
-  
+
   // Add a log to confirm the hook is firing
   console.log(`[User Model] 'pre-save' hook triggered for user: ${user.email}`);
-  
+
   if (!user.isModified('password')) {
     console.log('[User Model] Password not modified, skipping hashing.');
     return next();
   }
-  
+
   try {
     console.log('[User Model] Password modified. Hashing password...');
     const saltRounds = 10;
@@ -76,14 +76,14 @@ UserSchema.methods.comparePassword = async function (candidate: string) {
   console.log(`[User Model] Comparing password for user: ${this.email}`);
   console.log(`[User Model] Stored hash: ${this.password}`);
   console.log(`[User Model] Candidate password: ${candidate}`);
-  
+
   const result = await bcrypt.compare(candidate, this.password);
   console.log(`[User Model] Password comparison result: ${result}`);
-  
+
   return result;
 };
 
-UserSchema.methods.createPasswordResetToken = function() {
+UserSchema.methods.createPasswordResetToken = function () {
   // 1. Generate the raw token (what the user sees)
   const resetToken = crypto.randomBytes(32).toString('hex');
 

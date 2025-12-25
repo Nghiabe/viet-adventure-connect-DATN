@@ -37,7 +37,7 @@ const apiClient = {
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -49,18 +49,18 @@ const apiClient = {
       if (response.status === 404) {
         throw new Error(`API Route Not Found: GET ${url}`);
       }
-      
+
       // Handle all other non-successful responses
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: `HTTP ${response.status}: ${response.statusText}` 
+        const errorData = await response.json().catch(() => ({
+          error: `HTTP ${response.status}: ${response.statusText}`
         }));
         const error = new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         // Attach response data for useMutation error handling
         (error as any).response = { data: errorData, status: response.status };
         throw error;
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error: any) {
@@ -83,7 +83,7 @@ const apiClient = {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -94,17 +94,17 @@ const apiClient = {
       if (response.status === 404) {
         throw new Error(`API Route Not Found: POST ${url}`);
       }
-      
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: `HTTP ${response.status}: ${response.statusText}` 
+        const errorData = await response.json().catch(() => ({
+          error: `HTTP ${response.status}: ${response.statusText}`
         }));
         const error = new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         // Attach response data for useMutation error handling
         (error as any).response = { data: errorData, status: response.status };
         throw error;
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error: any) {
@@ -127,7 +127,7 @@ const apiClient = {
     try {
       const response = await fetch(url, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -138,17 +138,17 @@ const apiClient = {
       if (response.status === 404) {
         throw new Error(`API Route Not Found: PUT ${url}`);
       }
-      
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: `HTTP ${response.status}: ${response.statusText}` 
+        const errorData = await response.json().catch(() => ({
+          error: `HTTP ${response.status}: ${response.statusText}`
         }));
         const error = new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         // Attach response data for useMutation error handling
         (error as any).response = { data: errorData, status: response.status };
         throw error;
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error: any) {
@@ -172,7 +172,7 @@ const apiClient = {
     try {
       const response = await fetch(url, {
         method: 'DELETE',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -184,17 +184,17 @@ const apiClient = {
       if (response.status === 404) {
         throw new Error(`API Route Not Found: DELETE ${url}`);
       }
-      
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: `HTTP ${response.status}: ${response.statusText}` 
+        const errorData = await response.json().catch(() => ({
+          error: `HTTP ${response.status}: ${response.statusText}`
         }));
         const error = new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         // Attach response data for useMutation error handling
         (error as any).response = { data: errorData, status: response.status };
         throw error;
       }
-      
+
       // Handle responses that might not have a body
       const responseText = await response.text();
       return responseText ? JSON.parse(responseText) : { success: true };
@@ -218,7 +218,7 @@ const apiClient = {
     try {
       const response = await fetch(url, {
         method: 'PATCH',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -229,17 +229,17 @@ const apiClient = {
       if (response.status === 404) {
         throw new Error(`API Route Not Found: PATCH ${url}`);
       }
-      
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ 
-          error: `HTTP ${response.status}: ${response.statusText}` 
+        const errorData = await response.json().catch(() => ({
+          error: `HTTP ${response.status}: ${response.statusText}`
         }));
         const error = new Error(errorData.error || `HTTP error! Status: ${response.status}`);
         // Attach response data for useMutation error handling
         (error as any).response = { data: errorData, status: response.status };
         throw error;
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error: any) {

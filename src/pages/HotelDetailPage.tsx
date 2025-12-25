@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { useBooking, PreBookingDetails } from '@/context/BookingContext';
 
 type HotelDetail = any;
 
@@ -90,8 +92,19 @@ const HotelDetailPage: React.FC = () => {
   const [checkOut, setCheckOut] = useState<string>(preCheckOut || defaultCheckout);
 
   const [guests, setGuests] = useState<number>(2);
-  const [bedType, setBedType] = useState<string>('Double');
+  const [bedType, setBedType] = useState<string>('Tiêu chuẩn');
   const [isBooking, setIsBooking] = useState(false);
+
+  // Auto-select first room type when data loads
+  useEffect(() => {
+    const r = hotel?.raw ? safeParseJson(hotel.raw) : hotel?.raw;
+    if (r?.roomTypes && Array.isArray(r.roomTypes) && r.roomTypes.length > 0) {
+      setBedType(r.roomTypes[0].name);
+    }
+  }, [hotel]);
+
+  const { user, isAuthenticated } = useAuth();
+  const { initiateBooking } = useBooking();
 
   useEffect(() => {
     if (!id) return;
@@ -118,7 +131,7 @@ const HotelDetailPage: React.FC = () => {
         const txt = await res.text();
         if (!res.ok) {
           let body: any = txt;
-          try { body = JSON.parse(txt); } catch {}
+          try { body = JSON.parse(txt); } catch { }
           setError(`API lỗi ${res.status}: ${typeof body === 'string' ? body : JSON.stringify(body)}`);
           setLoading(false);
           return;
@@ -165,7 +178,17 @@ const HotelDetailPage: React.FC = () => {
   }, [checkIn, checkOut]);
 
   const nightsValid = nights > 0;
-  const totalPrice = (unitPrice != null && nightsValid) ? unitPrice * nights : null;
+
+  // Calculate effective price based on selected room type
+  const effectiveUnitPrice = useMemo(() => {
+    if (raw?.roomTypes && Array.isArray(raw.roomTypes)) {
+      const room = raw.roomTypes.find((r: any) => r.name === bedType);
+      if (room?.price) return Number(room.price);
+    }
+    return unitPrice;
+  }, [raw, bedType, unitPrice]);
+
+  const effectiveTotalPrice = (effectiveUnitPrice != null && nightsValid) ? effectiveUnitPrice * nights : null;
 
   // ensure checkout min updates when checkin changes
   useEffect(() => {
@@ -182,6 +205,13 @@ const HotelDetailPage: React.FC = () => {
   // booking
   const handleBook = async () => {
     if (!hotel) return;
+
+    // Auth Check
+    if (!isAuthenticated || !user) {
+      toast({ title: 'Vui lòng đăng nhập', description: 'Bạn cần đăng nhập để thực hiện đặt phòng.' });
+      return;
+    }
+
     if (!checkIn || !checkOut) {
       toast({ title: 'Vui lòng chọn ngày nhận/trả phòng' });
       return;
@@ -190,68 +220,32 @@ const HotelDetailPage: React.FC = () => {
       toast({ title: 'Ngày trả phải sau ngày nhận' });
       return;
     }
-    setIsBooking(true);
 
-    const payload = {
+    // Prepare booking details for context
+    const bookingDetails: PreBookingDetails = {
+      type: 'hotel',
       hotelId: String(hotel.id ?? hotel.hotelId ?? hotel.hotel_id ?? ''),
-      hotelName: hotel.name ?? raw?.hotel_name ?? '',
-      providerUrl: raw?.url ?? raw?.provider_url ?? null,
-      checkin: checkIn,
-      checkout: checkOut,
-      guests,
-      bedType,
+      title: hotel.name ?? raw?.hotel_name ?? 'Khách sạn',
+      image: hotel?.images?.[0] ?? raw?.photo1_url ?? raw?.main_photo_url,
+      checkIn,
+      checkOut,
       nights,
-      unitPrice: unitPrice ?? null,
-      totalPrice: totalPrice ?? null,
+      bedType,
+      participantsTotal: guests,
+      unitPrice: effectiveUnitPrice ?? 0,
+      clientComputedTotal: effectiveTotalPrice ?? 0,
+      // fields for hotel
+      providerUrl: raw?.url ?? raw?.provider_url ?? null,
       raw: hotel.raw ?? raw ?? null,
-      createdAt: new Date().toISOString()
+      // optional fields for type safety
+      tourId: '',
+      tourName: '',
+      bookingDate: checkIn,
     };
 
-    console.log('[CLIENT] Booking payload:', payload);
-
-    try {
-      // use relative URL so Vite proxy (if configured) forwards to backend
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const text = await res.text();
-      let json: any;
-      try { json = JSON.parse(text); } catch { json = { rawText: text }; }
-
-      console.log('[CLIENT] Booking response:', res.status, json);
-
-      if (!res.ok) {
-        const msg = json?.error || json?.message || `Server ${res.status}`;
-        toast({ title: 'Đặt phòng thất bại', description: String(msg) });
-        setIsBooking(false);
-        return;
-      }
-
-      toast({ title: 'Đã tạo đơn tạm', description: 'Bạn sẽ được chuyển sang trang đối tác để hoàn tất.' });
-
-      const providerRaw = json?.provider_url || payload.providerUrl || null;
-      const provider = normalizeProviderUrl(providerRaw, payload.hotelName);
-
-      console.log('[CLIENT] providerRaw:', providerRaw, '-> provider:', provider);
-
-      if (provider) {
-        window.open(provider, '_blank', 'noopener,noreferrer');
-        // also navigate to internal page for provisional info (optional)
-        if (json?.id) navigate(`/bookings/${json.id}`);
-      } else if (json?.id) {
-        navigate(`/bookings/${json.id}`);
-      } else {
-        toast({ title: 'Đặt phòng thành công', description: 'Đơn tạm đã được lưu.' });
-      }
-    } catch (e: any) {
-      console.error('[CLIENT] Booking exception', e);
-      toast({ title: 'Lỗi khi tạo đơn', description: String(e?.message || e) });
-    } finally {
-      setIsBooking(false);
-    }
+    // Save to context and navigate
+    initiateBooking(bookingDetails);
+    navigate('/checkout');
   };
 
   const showMapUrl = (() => {
@@ -333,47 +327,48 @@ const HotelDetailPage: React.FC = () => {
                 <div className="prose max-w-none mt-4" dangerouslySetInnerHTML={{ __html: String(raw?.description || raw?.long_description || `<p>Thông tin về ${hotel?.name || 'khách sạn'}</p>`) }} />
 
                 <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-2">Các tiện nghi được ưa chuộng</h3>
+                  {amenities.length > 0 && <h3 className="text-lg font-semibold mb-2">Các tiện nghi</h3>}
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {['WiFi miễn phí', 'Trung tâm Spa & chăm sóc sức khỏe', 'Dịch vụ phòng', 'Chỗ đậu xe (trong khuôn viên)', 'Phòng gia đình', 'Lễ tân 24 giờ'].map((t) => (
+                    {amenities.map((t) => (
                       <div key={t} className="flex items-center gap-2 p-3 border rounded">
                         <IconForAmenity name={t} />
                         <div className="text-sm">{t}</div>
                       </div>
                     ))}
                   </div>
-
-                  {amenities.length > 0 && (
-                    <>
-                      <h4 className="mt-4 font-medium">Tất cả tiện nghi</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 text-sm">
-                        {amenities.map((a, idx) => (
-                          <div key={`${a}-${idx}`} className="flex items-center gap-2 p-2 border rounded text-xs">
-                            <IconForAmenity name={a} />
-                            <span>{a}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
                 </div>
 
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-2">Đánh giá & Nhận xét</h3>
-                  {raw?.reviews && Array.isArray(raw.reviews) && raw.reviews.length ? (
-                    raw.reviews.slice(0, 4).map((r: any, i: number) => (
-                      <div key={i} className="border-b py-3">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{r.author || 'Khách'}</div>
-                          <div className="text-sm text-muted-foreground">{r.score ?? ''}</div>
+                {amenities.length > 0 && (
+                  <>
+                    <h4 className="mt-4 font-medium">Tất cả tiện nghi</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2 text-sm">
+                      {amenities.map((a, idx) => (
+                        <div key={`${a}-${idx}`} className="flex items-center gap-2 p-2 border rounded text-xs">
+                          <IconForAmenity name={a} />
+                          <span>{a}</span>
                         </div>
-                        <div className="text-sm text-muted-foreground">{r.text}</div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-2">Đánh giá & Nhận xét</h3>
+                {raw?.reviews && Array.isArray(raw.reviews) && raw.reviews.length ? (
+                  raw.reviews.slice(0, 4).map((r: any, i: number) => (
+                    <div key={i} className="border-b py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium">{r.author || 'Khách'}</div>
+                        <div className="text-sm text-muted-foreground">{r.score ?? ''}</div>
                       </div>
-                    ))
-                  ) : <div className="text-sm text-muted-foreground">Chưa có nhận xét chi tiết.</div>}
-                </div>
+                      <div className="text-sm text-muted-foreground">{r.text}</div>
+                    </div>
+                  ))
+                ) : <div className="text-sm text-muted-foreground">Chưa có nhận xét chi tiết.</div>}
               </div>
             </div>
+
 
             {/* RIGHT: booking card */}
             <aside className="space-y-4 p-6 border rounded-lg shadow-sm bg-white">
@@ -387,7 +382,7 @@ const HotelDetailPage: React.FC = () => {
 
                 <div className="mt-4">
                   <div className="text-sm text-muted-foreground">Giá 1 đêm (ước tính)</div>
-                  <div className="text-2xl font-bold text-primary">{formatPrice(unitPrice)}</div>
+                  <div className="text-2xl font-bold text-primary">{formatPrice(effectiveUnitPrice)}</div>
                 </div>
               </div>
 
@@ -418,19 +413,32 @@ const HotelDetailPage: React.FC = () => {
                     <Input type="number" min={1} value={guests} onChange={(e) => setGuests(Math.max(1, Number(e.target.value || 1)))} />
                   </div>
                   <div className="flex-1">
-                    <label className="text-sm font-medium">Loại giường</label>
-                    <select value={bedType} onChange={(e) => setBedType(e.target.value)} className="w-full border rounded px-2 py-2">
-                      <option>Double</option>
-                      <option>Single</option>
-                      <option>King</option>
-                      <option>Twin</option>
+                    <label className="text-sm font-medium">Loại phòng/giường</label>
+                    <select
+                      value={bedType}
+                      onChange={(e) => {
+                        setBedType(e.target.value);
+                      }}
+                      className="w-full border rounded px-2 py-2"
+                    >
+                      {raw?.roomTypes && raw.roomTypes.length > 0 ? (
+                        raw.roomTypes.map((rt: any, idx: number) => (
+                          <option key={idx} value={rt.name}>{rt.name} - {formatPrice(rt.price)}</option>
+                        ))
+                      ) : (
+                        <>
+                          <option>Tiêu chuẩn</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>
 
                 <div className="mt-3">
                   <div className="text-sm text-muted-foreground">Số đêm: {nightsValid ? nights : '—'}</div>
-                  <div className="text-xl font-semibold">{formatPrice(totalPrice ?? unitPrice)}</div>
+                  <div className="text-xl font-semibold">
+                    {formatPrice(effectiveTotalPrice ?? effectiveUnitPrice)}
+                  </div>
                   <div className="text-xs text-muted-foreground">Giá cuối cùng do đối tác xác nhận</div>
                 </div>
 
@@ -452,10 +460,11 @@ const HotelDetailPage: React.FC = () => {
               </div>
             </aside>
           </div>
-        ) : <div>Không có dữ liệu</div>}
-      </main>
+        ) : <div>Không có dữ liệu</div>
+        }
+      </main >
       <Footer />
-    </div>
+    </div >
   );
 };
 

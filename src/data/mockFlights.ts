@@ -1,6 +1,6 @@
 export interface IFlight {
   id: string;
-  airline: 'Vietnam Airlines' | 'VietJet Air' | 'Bamboo Airways';
+  airline: string;
   flightNumber: string;
   origin: { code: string; city: string };
   destination: { code: string; city: string };
@@ -9,7 +9,7 @@ export interface IFlight {
   duration: string; // "Xh Ym"
   price: number;
   stops: number; // 0 for direct
-  class: 'Economy' | 'Business';
+  class: string;
 }
 
 export const mockFlights: IFlight[] = [

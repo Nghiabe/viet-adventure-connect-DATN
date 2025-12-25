@@ -17,13 +17,17 @@ import { getAllTourImages, formatPriceVND, parseScheduleByDay } from '@/lib/tour
 import {
   Star, MapPin, Clock, Users, Calendar as CalendarIcon,
   ChevronLeft, ChevronRight, Check, X, Navigation,
-  Heart, Share2, Sun, Sunset, Moon, ArrowRight, Sparkles
+  Heart, Share2, Sun, Sunset, Moon, ArrowRight, Sparkles, MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import ErrorMessage from '@/components/ui/ErrorMessage';
 import { getTourById } from '@/services/tourService';
 import BookingConfirmationModal from '@/components/tours/BookingConfirmationModal';
+import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
+import apiClient from '@/services/apiClient';
+import { useAuth } from '@/context/AuthContext';
 
 // Star Rating Component
 const StarRating = ({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'lg' }) => {
@@ -56,6 +60,35 @@ const ExperienceDetail = () => {
 
   const tour = data?.tour;
   const reviews = data?.reviews || [];
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleChat = async () => {
+    if (!user) {
+      toast({
+        title: "Vui lòng đăng nhập",
+        description: "Bạn cần đăng nhập để chat với nhà cung cấp.",
+        variant: "default"
+      });
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const res = await apiClient.post<any>('/chat/inquiry', { tourId: id });
+      if (res.success && res.data) {
+        navigate(`/chat/${res.data.bookingId}`);
+      }
+    } catch (error) {
+      console.error("Chat error", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể kết nối trò chuyện.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const price = Number(tour?.price ?? 0);
   const totalPrice = price * adults + (price * 0.7 * children);
@@ -173,6 +206,9 @@ const ExperienceDetail = () => {
               {catConfig.label}
             </div>
             <div className="flex gap-2">
+              <button onClick={handleChat} className="p-3 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all text-primary">
+                <MessageCircle className="w-5 h-5" />
+              </button>
               <button onClick={() => setIsFavorited(!isFavorited)} className="p-3 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all">
                 <Heart className={`w-5 h-5 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
               </button>

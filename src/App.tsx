@@ -24,8 +24,10 @@ import ExperienceDetail from "./pages/ExperienceDetail";
 import CheckoutPage from "./pages/CheckoutPage";
 import BookingSuccessPage from "./pages/BookingSuccessPage";
 import BookingDetailPage from "./pages/BookingDetailPage";
+import ChatPage from "./pages/ChatPage";
 import TransportationHub from "./pages/TransportationHub";
 import CommunityHub from "./pages/CommunityHub";
+import StoryDetailPage from "./pages/StoryDetailPage";
 import MobileAppLanding from "./pages/MobileAppLanding";
 import DestinationDetail from "./pages/DestinationDetail";
 import NotFound from "./pages/NotFound";
@@ -72,12 +74,17 @@ const App = () => (
                 <Route path="/flights/search" element={<FlightsResultsPage />} />
                 <Route path="/experience/:id" element={<ExperienceDetail />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/booking/success" element={<BookingSuccessPage />} />
                 <Route path="/booking/success/:id" element={<BookingSuccessPage />} />
                 <Route path="/transportation" element={<TransportationHub />} />
                 <Route path="/community" element={<CommunityHub />} />
+                <Route path="/community/story/:id" element={<StoryDetailPage />} />
                 <Route path="/mobile-app" element={<MobileAppLanding />} />
                 <Route path="/destinations/:slug" element={<DestinationDetail />} />
                 <Route path="/my-plans" element={<MyPlansPage />} />
+                <Route path="/chat" element={<ChatPage />} />
+                <Route path="/chat/:bookingId" element={<ChatPage />} />
               </Route>
 
               {/* Unified Dashboard Route with role-based access */}

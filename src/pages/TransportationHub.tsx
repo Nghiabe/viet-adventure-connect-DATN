@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/home/Header";
 import { Footer } from "@/components/home/Footer";
 import { Button } from "@/components/ui/button";
@@ -7,197 +8,221 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plane, Train, Bus, Calendar as CalendarIcon, MapPin, Clock, Star } from "lucide-react";
+import { Plane, Train, Bus, Calendar as CalendarIcon, MapPin, Clock, Star, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useBooking } from "@/context/BookingContext";
+import { useAuth } from "@/context/AuthContext";
+import apiClient from "@/services/apiClient";
+import { toast } from "sonner";
 
-// Mock data for search results
-const flightResults = [
-  {
-    id: "VN101",
-    airline: "Vietnam Airlines",
-    logo: "🇻🇳",
-    departure: { time: "06:00", airport: "SGN" },
-    arrival: { time: "08:15", airport: "HAN" },
-    duration: "2h 15m",
-    price: 2450000,
-    class: "Economy"
-  },
-  {
-    id: "VJ201",
-    airline: "VietJet Air", 
-    logo: "✈️",
-    departure: { time: "09:30", airport: "SGN" },
-    arrival: { time: "11:45", airport: "HAN" },
-    duration: "2h 15m",
-    price: 1890000,
-    class: "Economy"
-  },
-  {
-    id: "BL301",
-    airline: "Jetstar Pacific",
-    logo: "⭐",
-    departure: { time: "14:20", airport: "SGN" },
-    arrival: { time: "16:35", airport: "HAN" },
-    duration: "2h 15m", 
-    price: 2100000,
-    class: "Economy"
-  }
-];
+// Mock data removed in favor of API
+const flightResults = [];
+const trainResults = [];
+const busResults = [];
 
-const trainResults = [
-  {
-    id: "SE1",
-    operator: "Đường sắt Việt Nam",
-    logo: "🚂",
-    departure: { time: "19:30", station: "Ga Sài Gòn" },
-    arrival: { time: "04:30+1", station: "Ga Hà Nội" },
-    duration: "33h",
-    price: 1250000,
-    class: "Giường nằm khoang 4"
-  },
-  {
-    id: "SE3",
-    operator: "Đường sắt Việt Nam",
-    logo: "🚂", 
-    departure: { time: "22:00", station: "Ga Sài Gòn" },
-    arrival: { time: "06:00+2", station: "Ga Hà Nội" },
-    duration: "32h",
-    price: 890000,
-    class: "Ghế ngồi cứng"
-  }
-];
-
-const busResults = [
-  {
-    id: "PH001",
-    operator: "Phương Trang",
-    logo: "🚌",
-    departure: { time: "08:00", station: "Bến xe Miền Đông" },
-    arrival: { time: "06:00+1", station: "Bến xe Giáp Bát" },
-    duration: "22h",
-    price: 450000,
-    class: "Giường nằm"
-  },
-  {
-    id: "TH002", 
-    operator: "Thành Bưởi",
-    logo: "🚐",
-    departure: { time: "20:30", station: "Bến xe Miền Đông" },
-    arrival: { time: "18:30+1", station: "Bến xe Giáp Bát" },
-    duration: "22h",
-    price: 380000,
-    class: "Ghế ngồi"
-  }
-];
 
 // Result Card Component
-const ResultCard = ({ result, type }: { result: any; type: 'flight' | 'train' | 'bus' }) => {
+const ResultCard = ({ result, type, onSelect, onChat }: { result: any; type: 'flight' | 'train' | 'bus'; onSelect: (result: any) => void; onChat: (result: any) => void }) => {
   const getTypeIcon = () => {
     switch (type) {
-      case 'flight': return <Plane className="w-5 h-5" />;
-      case 'train': return <Train className="w-5 h-5" />;
-      case 'bus': return <Bus className="w-5 h-5" />;
+      case 'flight': return <Plane className="h-5 w-5" />;
+      case 'train': return <Train className="h-5 w-5" />;
+      case 'bus': return <Bus className="h-5 w-5" />;
     }
   };
 
   const getOperatorName = () => {
-    switch (type) {
-      case 'flight': return result.airline;
-      case 'train': return result.operator;
-      case 'bus': return result.operator;
-    }
-  };
-
-  const getDepartureLocation = () => {
-    switch (type) {
-      case 'flight': return result.departure.airport;
-      case 'train': return result.departure.station;
-      case 'bus': return result.departure.station;
-    }
-  };
-
-  const getArrivalLocation = () => {
-    switch (type) {
-      case 'flight': return result.arrival.airport;
-      case 'train': return result.arrival.station;
-      case 'bus': return result.arrival.station;
-    }
+    return result.operator || result.airline;
   };
 
   return (
-    <div className="bg-card border rounded-xl p-6 hover:shadow-md transition-all duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1">
-          {/* Operator Info */}
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">{result.logo}</div>
-            <div>
-              <div className="font-semibold">{getOperatorName()}</div>
-              <div className="text-sm text-muted-foreground">{result.class}</div>
-            </div>
+    <div className="bg-white rounded-lg p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm border hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-4 flex-1">
+        {/* Operator Info */}
+        <div className="flex items-center gap-3">
+          <div className="text-2xl">
+            {result.logo && (result.logo.startsWith('http') || result.logo.startsWith('/')) ?
+              <img src={result.logo} alt={getOperatorName()} className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> :
+              result.logo
+            }
           </div>
+          <div>
+            <div className="font-semibold">{getOperatorName()}</div>
+            <div className="text-sm text-muted-foreground">{result.class}</div>
+          </div>
+        </div>
 
-          {/* Route Info */}
-          <div className="flex items-center gap-4 flex-1">
-            <div className="text-center">
-              <div className="font-bold text-lg">{result.departure.time}</div>
-              <div className="text-sm text-muted-foreground">{getDepartureLocation()}</div>
-            </div>
-            
-            <div className="flex-1 flex items-center gap-2">
-              <div className="flex-1 h-px bg-border"></div>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                {getTypeIcon()}
-                <span className="text-xs">{result.duration}</span>
+        {/* Journey Info */}
+        <div className="flex-1 flex items-center justify-center gap-8 text-center">
+          <div>
+            <div className="text-xl font-bold">{result.departure.time}</div>
+            <div className="text-sm text-muted-foreground">{result.departure.station || result.departure.airport || 'Điểm đi'}</div>
+          </div>
+          <div className="flex flex-col items-center gap-1 min-w-[120px]">
+            <div className="text-xs text-muted-foreground">{result.duration}</div>
+            <div className="w-full flex items-center gap-1">
+              <div className="h-[1px] flex-1 bg-border relative">
+                <div className="absolute right-0 -top-0.5 w-1 h-1 rounded-full bg-border" />
               </div>
-              <div className="flex-1 h-px bg-border"></div>
-            </div>
-            
-            <div className="text-center">
-              <div className="font-bold text-lg">{result.arrival.time}</div>
-              <div className="text-sm text-muted-foreground">{getArrivalLocation()}</div>
+              {getTypeIcon()}
+              <div className="h-[1px] flex-1 bg-border relative">
+                <div className="absolute left-0 -top-0.5 w-1 h-1 rounded-full bg-border" />
+              </div>
             </div>
           </div>
+          <div>
+            <div className="text-xl font-bold">{result.arrival.time}</div>
+            <div className="text-sm text-muted-foreground">{result.arrival.station || result.arrival.airport || 'Điểm đến'}</div>
+          </div>
         </div>
+      </div>
 
-        {/* Price and Action */}
-        <div className="text-right ml-6">
-          <div className="text-2xl font-bold text-primary mb-2">
-            {result.price.toLocaleString()}₫
-          </div>
-          <Button>Chọn</Button>
+      <div className="flex flex-col items-end gap-2 min-w-[140px]">
+        <div className="text-xl font-bold text-primary">
+          {new Intl.NumberFormat('vi-VN').format(result.price)}₫
         </div>
+      </div>
+      <div className="flex flex-col gap-2 w-full">
+        <Button onClick={() => onSelect(result)} className="w-full">Chọn</Button>
+        <Button onClick={() => onChat(result)} variant="outline" className="w-full gap-2 text-primary border-primary/20 hover:bg-primary/5">
+          <MessageCircle className="w-4 h-4" />
+          Tin nhắn
+        </Button>
       </div>
     </div>
   );
 };
 
 const TransportationHub = () => {
+  const navigate = useNavigate();
+  const { initiateBooking } = useBooking();
+  const { isAuthenticated, user } = useAuth();
   const [activeTab, setActiveTab] = useState("flights");
   const [departureDate, setDepartureDate] = useState<Date>();
   const [returnDate, setReturnDate] = useState<Date>();
   const [passengers, setPassengers] = useState(1);
+  const [departure, setDeparture] = useState("");
+  const [destination, setDestination] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
   const [isDepartureDateOpen, setIsDepartureDateOpen] = useState(false);
   const [isReturnDateOpen, setIsReturnDateOpen] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
+    if (!departureDate) return;
+
     setIsSearching(true);
-    // Simulate API call
-    setTimeout(() => {
+    setShowResults(false);
+
+    try {
+      // Map activeTab to API type
+      let type = activeTab.slice(0, -1); // flights -> flight, trains -> train
+      if (activeTab === 'buses') type = 'bus';
+
+      const params = new URLSearchParams({
+        type,
+        from: departure,
+        to: destination,
+        date: departureDate.toISOString(),
+        passengers: passengers.toString()
+      });
+
+      const response = await fetch(`/api/transport?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setResults(data.data);
+      } else {
+        console.error("Search failed:", data.error);
+        setResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching:", error);
+      setResults([]);
+    } finally {
       setIsSearching(false);
       setShowResults(true);
-    }, 1500);
+    }
   };
 
   const getResults = () => {
-    switch (activeTab) {
-      case 'flights': return flightResults;
-      case 'trains': return trainResults;
-      case 'buses': return busResults;
-      default: return [];
+    return results;
+  };
+
+  const handleSelect = (result: any) => {
+    let type: any = activeTab.slice(0, -1);
+    if (activeTab === 'buses') type = 'bus';
+
+    // Fallback for ID generation or mapping
+    const id = result.id || result._id || Math.random().toString(36).substr(2, 9);
+    const operator = result.operator || result.airline;
+
+    initiateBooking({
+      type,
+      title: `${type === 'flight' ? 'Vé máy bay' : type === 'train' ? 'Vé tàu' : 'Vé xe'} ${operator} - ${result.departure.station || result.departure.airport} đi ${result.arrival.station || result.arrival.airport}`,
+      operator: operator,
+      transportNumber: id,
+      flightNumber: type === 'flight' ? id : undefined,
+      origin: {
+        code: result.departure.station || result.departure.airport,
+        city: result.departure.station || result.departure.airport,
+        station: result.departure.station,
+        time: result.departure.time
+      },
+      destination: {
+        code: result.arrival.station || result.arrival.airport,
+        city: result.arrival.station || result.arrival.airport,
+        station: result.arrival.station,
+        time: result.arrival.time
+      },
+      bookingDate: departureDate?.toISOString(),
+      duration: result.duration,
+      participantsTotal: passengers,
+      unitPrice: result.price,
+      clientComputedTotal: result.price * passengers,
+      class: result.class,
+    });
+    navigate('/checkout');
+  };
+
+  const handleChat = async (result: any) => {
+    if (!isAuthenticated) {
+      toast.error("Vui lòng đăng nhập để chat với nhà cung cấp");
+      navigate('/login');
+      return;
+    }
+
+    let type: any = activeTab.slice(0, -1);
+    if (activeTab === 'buses') type = 'bus';
+
+    // Construct transport data for API
+    const transportData = {
+      type: type,
+      title: `${type === 'flight' ? 'Vé máy bay' : type === 'train' ? 'Vé tàu' : 'Vé xe'} ${result.operator || result.airline} - ${result.departure.station || result.departure.airport} đi ${result.arrival.station || result.arrival.airport}`,
+      operator: result.operator || result.airline,
+      unitPrice: result.price,
+      totalPrice: result.price * passengers,
+      passengers: passengers,
+      originCode: result.departure.station || result.departure.airport,
+      destinationCode: result.arrival.station || result.arrival.airport,
+      destination: result.arrival.city || result.arrival.station || result.arrival.airport, // Approx destination name
+      duration: result.duration,
+      departureTime: departureDate ? departureDate.toISOString() : new Date().toISOString(),
+      image: result.logo // Pass logo as image
+    };
+
+    try {
+      const res = await apiClient.post<any>('/chat/inquiry', { transportData });
+      if (res.success && res.data) {
+        navigate(`/chat/${res.data.bookingId}`);
+      } else {
+        toast.error("Không thể tạo cuộc trò chuyện");
+      }
+    } catch (error) {
+      console.error("Chat error", error);
+      toast.error("Đã có lỗi xảy ra khi kết nối trò chuyện");
     }
   };
 
@@ -206,286 +231,136 @@ const TransportationHub = () => {
       case 'flights': return <Plane className="w-4 h-4" />;
       case 'trains': return <Train className="w-4 h-4" />;
       case 'buses': return <Bus className="w-4 h-4" />;
+      default: return <Plane className="w-4 h-4" />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-secondary">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
-      <main className="pt-20">
-        <div className="container mx-auto px-4 py-8">
-          {/* Page Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-4">Đặt vé di chuyển</h1>
-            <p className="text-muted-foreground">Tìm và đặt vé máy bay, tàu hỏa, xe khách với giá tốt nhất</p>
+
+      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold mb-4">Đặt vé di chuyển</h1>
+            <p className="text-muted-foreground text-lg">
+              Tìm và đặt vé máy bay, tàu hỏa, xe khách với giá tốt nhất
+            </p>
           </div>
 
-          {/* Main Search Card */}
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-card rounded-xl border shadow-lg p-6">
-              {/* Tab Navigation */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6">
-                  <TabsTrigger value="flights" className="flex items-center gap-2">
-                    <Plane className="w-4 h-4" />
-                    Vé máy bay
-                  </TabsTrigger>
-                  <TabsTrigger value="trains" className="flex items-center gap-2">
-                    <Train className="w-4 h-4" />
-                    Tàu hỏa
-                  </TabsTrigger>
-                  <TabsTrigger value="buses" className="flex items-center gap-2">
-                    <Bus className="w-4 h-4" />
-                    Xe khách
-                  </TabsTrigger>
-                </TabsList>
+          <div className="bg-card rounded-2xl shadow-lg border p-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-8">
+                <TabsTrigger value="flights" className="gap-2">
+                  <Plane className="w-4 h-4" /> Vé máy bay
+                </TabsTrigger>
+                <TabsTrigger value="trains" className="gap-2">
+                  <Train className="w-4 h-4" /> Tàu hỏa
+                </TabsTrigger>
+                <TabsTrigger value="buses" className="gap-2">
+                  <Bus className="w-4 h-4" /> Xe khách
+                </TabsTrigger>
+              </TabsList>
 
-                {/* Search Form */}
-                <TabsContent value="flights">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Điểm đi</label>
-                      <Select defaultValue="sgn">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sgn">TP. Hồ Chí Minh (SGN)</SelectItem>
-                          <SelectItem value="han">Hà Nội (HAN)</SelectItem>
-                          <SelectItem value="dad">Đà Nẵng (DAD)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Điểm đến</label>
-                      <Select defaultValue="han">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="han">Hà Nội (HAN)</SelectItem>
-                          <SelectItem value="sgn">TP. Hồ Chí Minh (SGN)</SelectItem>
-                          <SelectItem value="dad">Đà Nẵng (DAD)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Ngày đi</label>
-                      <Popover open={isDepartureDateOpen} onOpenChange={setIsDepartureDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {departureDate ? format(departureDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={departureDate}
-                            onSelect={(date) => {
-                              setDepartureDate(date);
-                              setIsDepartureDateOpen(false);
-                            }}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Hành khách</label>
-                      <Select value={passengers.toString()} onValueChange={(value) => setPassengers(parseInt(value))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1,2,3,4,5,6,7,8,9].map(num => (
-                            <SelectItem key={num} value={num.toString()}>
-                              {num} {num === 1 ? 'hành khách' : 'hành khách'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Input Fields */}
+                <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Điểm đi</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Nhập điểm đi..."
+                        value={departure}
+                        onChange={(e) => setDeparture(e.target.value)}
+                      />
                     </div>
                   </div>
-                </TabsContent>
 
-                <TabsContent value="trains">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Ga đi</label>
-                      <Select defaultValue="saigon">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="saigon">Ga Sài Gòn</SelectItem>
-                          <SelectItem value="hanoi">Ga Hà Nội</SelectItem>
-                          <SelectItem value="danang">Ga Đà Nẵng</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Ga đến</label>
-                      <Select defaultValue="hanoi">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hanoi">Ga Hà Nội</SelectItem>
-                          <SelectItem value="saigon">Ga Sài Gòn</SelectItem>
-                          <SelectItem value="danang">Ga Đà Nẵng</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Ngày đi</label>
-                      <Popover open={isDepartureDateOpen} onOpenChange={setIsDepartureDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {departureDate ? format(departureDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={departureDate}
-                            onSelect={(date) => {
-                              setDepartureDate(date);
-                              setIsDepartureDateOpen(false);
-                            }}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Hành khách</label>
-                      <Select value={passengers.toString()} onValueChange={(value) => setPassengers(parseInt(value))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1,2,3,4,5,6,7,8,9].map(num => (
-                            <SelectItem key={num} value={num.toString()}>
-                              {num} {num === 1 ? 'hành khách' : 'hành khách'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Điểm đến</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Nhập điểm đến..."
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                      />
                     </div>
                   </div>
-                </TabsContent>
 
-                <TabsContent value="buses">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Điểm đi</label>
-                      <Select defaultValue="hcm">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hcm">TP. Hồ Chí Minh</SelectItem>
-                          <SelectItem value="hanoi">Hà Nội</SelectItem>
-                          <SelectItem value="danang">Đà Nẵng</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Điểm đến</label>
-                      <Select defaultValue="hanoi">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hanoi">Hà Nội</SelectItem>
-                          <SelectItem value="hcm">TP. Hồ Chí Minh</SelectItem>
-                          <SelectItem value="danang">Đà Nẵng</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Ngày đi</label>
-                      <Popover open={isDepartureDateOpen} onOpenChange={setIsDepartureDateOpen}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {departureDate ? format(departureDate, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={departureDate}
-                            onSelect={(date) => {
-                              setDepartureDate(date);
-                              setIsDepartureDateOpen(false);
-                            }}
-                            disabled={(date) => date < new Date()}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Hành khách</label>
-                      <Select value={passengers.toString()} onValueChange={(value) => setPassengers(parseInt(value))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1,2,3,4,5,6,7,8,9].map(num => (
-                            <SelectItem key={num} value={num.toString()}>
-                              {num} {num === 1 ? 'hành khách' : 'hành khách'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Ngày đi</label>
+                    <Popover open={isDepartureDateOpen} onOpenChange={setIsDepartureDateOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={`w-full justify-start text-left font-normal ${!departureDate && "text-muted-foreground"}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {departureDate ? format(departureDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={departureDate}
+                          onSelect={(date) => {
+                            setDepartureDate(date);
+                            setIsDepartureDateOpen(false);
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                </TabsContent>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Hành khách</label>
+                    <Select value={passengers.toString()} onValueChange={(v) => setPassengers(parseInt(v))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Số khách" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6].map((num) => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num} hành khách
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
                 {/* Search Button */}
-                <Button 
+                <Button
                   onClick={handleSearch}
-                  className="w-full lg:w-auto lg:px-12"
-                  size="lg"
+                  className="w-full lg:h-10 lg:self-end"
                   disabled={isSearching || !departureDate}
                 >
                   {isSearching ? "Đang tìm kiếm..." : "Tìm kiếm"}
                 </Button>
-              </Tabs>
-            </div>
+              </div>
+            </Tabs>
 
             {/* Search Results */}
             {showResults && (
               <div className="mt-8">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold mb-2">Kết quả tìm kiếm</h2>
-                  <p className="text-muted-foreground">
-                    Tìm thấy {getResults().length} lựa chọn cho chuyến đi của bạn
-                  </p>
-                </div>
-                
-                <div className="space-y-4">
-                  {getResults().map((result) => (
-                    <ResultCard 
-                      key={result.id} 
-                      result={result} 
-                      type={activeTab.slice(0, -1) as 'flight' | 'train' | 'bus'} 
+                <h2 className="text-2xl font-bold mb-2">Kết quả tìm kiếm</h2>
+                <p className="text-muted-foreground">
+                  Tìm thấy {results.length} lựa chọn cho chuyến đi của bạn
+                </p>
+
+                <div className="space-y-4 mt-4">
+                  {results.map((result, index) => (
+                    <ResultCard
+                      key={index}
+                      result={result}
+                      type={activeTab === 'buses' ? 'bus' : activeTab.slice(0, -1) as 'flight' | 'train'}
+                      onSelect={handleSelect}
+                      onChat={handleChat}
                     />
                   ))}
                 </div>
@@ -494,14 +369,10 @@ const TransportationHub = () => {
           </div>
         </div>
       </main>
-      
+
       <Footer />
     </div>
   );
 };
 
 export default TransportationHub;
-
-
-
-

@@ -112,6 +112,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
+                    <NavLink to="/dashboard/chat">Tin nhắn</NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
                     <NavLink to="/dashboard/reviews">Đánh giá</NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -228,9 +228,7 @@ export default function PartnerTourEditorPage() {
 
             if (response.success) {
                 toast.success(mode === 'publish' ? 'Đã xuất bản' : 'Đã lưu nháp');
-                if (isNew) {
-                    navigate('/dashboard/tours');
-                }
+                navigate('/dashboard/tours');
             } else {
                 toast.error(response.error || 'Lỗi khi lưu tour');
             }

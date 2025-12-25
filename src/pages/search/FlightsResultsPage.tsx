@@ -1,7 +1,8 @@
 import { Header } from '@/components/home/Header';
+import { useToast } from '@/components/ui/use-toast';
 import { Footer } from '@/components/home/Footer';
 import { useMemo, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import FilterSidebar, { FlightFilters } from '@/components/flights/FilterSidebar';
 import FlightCard from '@/components/flights/FlightCard';
 import FlightCardSkeleton from '@/components/flights/FlightCardSkeleton';
@@ -9,6 +10,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { IFlight, mockFlights } from '@/data/mockFlights';
+import { useBooking, PreBookingDetails } from '@/context/BookingContext';
+import { airlineLogoMap } from '@/components/flights/FlightCard';
 
 type SortBy = 'relevance' | 'price_asc' | 'price_desc' | 'departure_asc';
 const sortOptions: { value: SortBy; label: string }[] = [
@@ -22,8 +25,12 @@ const PAGE_SIZE = 12;
 
 const FlightsResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { initiateBooking } = useBooking();
   const [isLoading, setIsLoading] = useState(true);
   const [filteredFlights, setFilteredFlights] = useState<IFlight[]>([]);
+  const [totalResults, setTotalResults] = useState(0);
 
   // Initial criteria from homepage
   const from = searchParams.get('from') || '';
@@ -65,7 +72,7 @@ const FlightsResultsPage = () => {
   const handleToggleStop = (stops: number) => {
     const set = new Set(selectedStops);
     if (set.has(stops)) set.delete(stops); else set.add(stops);
-    const v = Array.from(set).sort((a,b)=>a-b).join(',');
+    const v = Array.from(set).sort((a, b) => a - b).join(',');
     updateParams({ stops: v || undefined });
   };
   const handleToggleAirline = (airline: string) => {
@@ -83,43 +90,46 @@ const FlightsResultsPage = () => {
   const handleSortChange = (v: SortBy) => updateParams({ sortBy: v });
   const handlePageChange = (p: number) => updateParams({ page: p });
 
-  // Simulated async fetch + filtering
+  // Async fetch from API
   useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      let results = [...mockFlights];
-      // Pre-filter by route if provided
-      if (from) results = results.filter(f => f.origin.code.toLowerCase() === from.toLowerCase() || f.origin.city.toLowerCase().includes(from.toLowerCase()));
-      if (to) results = results.filter(f => f.destination.code.toLowerCase() === to.toLowerCase() || f.destination.city.toLowerCase().includes(to.toLowerCase()));
-      // Date is not used to filter mock items here, but kept for completeness
-      // Filters
-      results = results.filter(f => f.price <= maxPrice);
-      if (selectedStops.length > 0) results = results.filter(f => selectedStops.includes(f.stops));
-      if (selectedAirlines.length > 0) results = results.filter(f => selectedAirlines.includes(f.airline));
-      if (classTypes.length > 0) results = results.filter(f => classTypes.includes(f.class));
-      // Sorting
-      if (sortBy === 'price_asc') results.sort((a,b)=>a.price-b.price);
-      else if (sortBy === 'price_desc') results.sort((a,b)=>b.price-a.price);
-      else if (sortBy === 'departure_asc') results.sort((a,b)=>a.departureTime.localeCompare(b.departureTime));
-      // Pagination
-      const start = (page - 1) * PAGE_SIZE;
-      const end = start + PAGE_SIZE;
-      setFilteredFlights(results.slice(start, end));
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [from, to, date, maxPrice, selectedStops.join(','), selectedAirlines.join(','), classTypes.join(','), sortBy, page]);
+    const fetchFlights = async () => {
+      setIsLoading(true);
+      try {
+        // Construct query parameters
+        const params = new URLSearchParams();
+        if (from) params.append('from', from);
+        if (to) params.append('to', to);
+        if (date) params.append('date', date);
+        if (maxPrice) params.append('maxPrice', maxPrice.toString());
+        if (selectedStops.length > 0) params.append('stops', selectedStops.join(','));
+        if (selectedAirlines.length > 0) params.append('airlines', selectedAirlines.join(','));
+        if (classTypes.length > 0) params.append('classes', classTypes.join(','));
+        params.append('sortBy', sortBy);
+        params.append('page', page.toString()); // Backend implementation expects page
 
-  const totalResults = useMemo(() => {
-    let results = [...mockFlights];
-    if (from) results = results.filter(f => f.origin.code.toLowerCase() === from.toLowerCase() || f.origin.city.toLowerCase().includes(from.toLowerCase()));
-    if (to) results = results.filter(f => f.destination.code.toLowerCase() === to.toLowerCase() || f.destination.city.toLowerCase().includes(to.toLowerCase()));
-    results = results.filter(f => f.price <= maxPrice);
-    if (selectedStops.length > 0) results = results.filter(f => selectedStops.includes(f.stops));
-    if (selectedAirlines.length > 0) results = results.filter(f => selectedAirlines.includes(f.airline));
-    if (classTypes.length > 0) results = results.filter(f => classTypes.includes(f.class));
-    return results.length;
-  }, [from, to, maxPrice, selectedStops.join(','), selectedAirlines.join(','), classTypes.join(',')]);
+        // Import apiClient dynamically to avoid top-level issues if any, or just standard import
+        const { default: apiClient } = await import('@/services/apiClient');
+
+        const response = await apiClient.get<any>(`/flights?${params.toString()}`);
+
+        if (response.success && response.data) {
+          setFilteredFlights(response.data);
+          setTotalResults((response as any).total || 0);
+        } else {
+          setFilteredFlights([]);
+          setTotalResults(0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch flights", error);
+        // Fallback or empty
+        setFilteredFlights([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFlights();
+  }, [from, to, date, maxPrice, selectedStops.join(','), selectedAirlines.join(','), classTypes.join(','), sortBy, page]);
 
   const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
   const handleClearFilters = () => setSearchParams(new URLSearchParams({ from, to, date }), { replace: true });
@@ -179,7 +189,30 @@ const FlightsResultsPage = () => {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
                     {filteredFlights.map(flight => (
-                      <FlightCard key={flight.id} flight={flight} />
+                      <FlightCard
+                        key={flight.id}
+                        flight={flight}
+                        onSelect={(f) => {
+                          const details: PreBookingDetails = {
+                            type: 'flight',
+                            title: `Vé máy bay ${f.origin.city} - ${f.destination.city}`,
+                            unitPrice: f.price,
+                            clientComputedTotal: f.price, // Start with 1 pax
+                            participantsTotal: 1,
+                            image: airlineLogoMap[f.airline],
+                            airline: f.airline,
+                            flightNumber: f.flightNumber,
+                            origin: { ...f.origin, time: f.departureTime },
+                            destination: { ...f.destination, time: f.arrivalTime },
+                            duration: f.duration,
+                            stops: f.stops,
+                            class: f.class,
+                            bookingDate: date || new Date().toISOString()
+                          };
+                          initiateBooking(details);
+                          navigate('/checkout');
+                        }}
+                      />
                     ))}
                   </div>
                   {totalPages > 1 && (

@@ -1,14 +1,34 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface PreBookingDetails {
-  tourId: string;
-  tourName: string;
+  type?: 'tour' | 'hotel' | 'flight' | 'train' | 'bus';
+  tourId?: string;
+  hotelId?: string;
+  title: string; // Generic title (Tour name, Hotel name, or Transport route)
+  tourName?: string; // Legacy support
   duration?: string;
-  bookingDate: string; // ISO string
+  bookingDate?: string; // ISO string 
+  checkIn?: string;
+  checkOut?: string;
+  nights?: number;
+  bedType?: string;
   participantsTotal: number;
   participantsBreakdown?: { adults?: number; children?: number };
   unitPrice: number;
-  clientComputedTotal: number; // informational; server will recompute
+  clientComputedTotal: number;
+  image?: string;
+  address?: string;
+  providerUrl?: string;
+  raw?: any;
+  // Transport Specific (Flight, Train, Bus)
+  airline?: string; // specific for flight
+  operator?: string; // generic for train/bus
+  flightNumber?: string;
+  transportNumber?: string; // generic for train/bus
+  origin?: { code?: string; city?: string; station?: string; time: string };
+  destination?: { code?: string; city?: string; station?: string; time: string };
+  class?: string;
+  stops?: number;
 }
 
 interface BookingContextValue {

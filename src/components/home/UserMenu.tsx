@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { User, LogOut, Settings } from "lucide-react";
+import { User, LogOut, Settings, MessageSquare } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -79,6 +79,12 @@ export const UserMenu = ({ user, logout, showName = false }: UserMenuProps) => {
                     <Link to="/profile" className="cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
                         <span>Hồ sơ của tôi</span>
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link to="/chat" className="cursor-pointer">
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        <span>Tin nhắn</span>
                     </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

@@ -3,18 +3,18 @@ import { ResilientImage } from '@/components/ui/ResilientImage';
 import { ArrowRight, Plane } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-const airlineLogoMap: Record<IFlight['airline'], string> = {
+export const airlineLogoMap: Record<string, string> = {
   'Vietnam Airlines': 'https://picsum.photos/seed/vna/120/120',
   'VietJet Air': 'https://picsum.photos/seed/vja/120/120',
   'Bamboo Airways': 'https://picsum.photos/seed/bamboo/120/120',
 };
 
-const FlightCard = ({ flight }: { flight: IFlight }) => {
+const FlightCard = ({ flight, onSelect }: { flight: IFlight; onSelect?: (flight: IFlight) => void }) => {
   return (
     <article className="bg-card rounded-xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
       <div className="p-4 flex items-center gap-4">
         <div className="w-14 h-14">
-          <ResilientImage src={airlineLogoMap[flight.airline]} alt={flight.airline} className="w-14 h-14 object-contain rounded" />
+          <ResilientImage src={airlineLogoMap[flight.airline] || 'https://picsum.photos/seed/flight-default/120/120'} alt={flight.airline} className="w-14 h-14 object-contain rounded" />
         </div>
         <div className="flex-1">
           <div className="flex items-center justify-between">
@@ -34,7 +34,7 @@ const FlightCard = ({ flight }: { flight: IFlight }) => {
           </div>
         </div>
         <div>
-          <Button size="sm">Chọn</Button>
+          <Button size="sm" onClick={() => onSelect?.(flight)}>Chọn</Button>
         </div>
       </div>
     </article>

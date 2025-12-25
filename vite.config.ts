@@ -88,6 +88,16 @@ function profileApiPlugin() {
     configureServer(server: ViteDevServer) {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.originalUrl || req.url || '';
+
+        // --- PROXY CONFIGURATION FOR PARTNER API ---
+        // Forward /api/partner requests to the backend server (port 4000)
+        // This is necessary because Vite's built-in proxy in server.proxy doesn't always 
+        // play nicely with custom middleware if not configured carefully.
+        // However, a simpler approach is to use the 'proxy' option in defineConfig.
+        // But since we are here in a middleware, we can also forward if we want, 
+        // OR we can rely on vite.config.ts server.proxy.
+        // Let's rely on server.proxy which I will add/verify below in the config object.
+
         if (!url.startsWith('/api/users/profile')) return next();
 
         // Handle GET /api/users/profile (existing)
@@ -811,15 +821,15 @@ function seedApiPlugin() {
     name: 'vite-plugin-seed-endpoint',
     configureServer(server: ViteDevServer) {
       // --- Public Bookings API (create booking) ---
-      server.middlewares.use(async (req: any, res: any, next: any) => {
-        const url = req.originalUrl || req.url || '';
-        const method = req.method;
-        if (method === 'POST' && url.startsWith('/api/bookings')) {
-          console.log('[API ROUTER] Handling POST /api/bookings');
-          return handleCreateBooking(req, res);
-        }
-        return next();
-      });
+      // server.middlewares.use(async (req: any, res: any, next: any) => {
+      //   const url = req.originalUrl || req.url || '';
+      //   const method = req.method;
+      //   if (method === 'POST' && url.startsWith('/api/bookings')) {
+      //     console.log('[API ROUTER] Handling POST /api/bookings');
+      //     return handleCreateBooking(req, res);
+      //   }
+      //   return next();
+      // });
       // --- Admin User Management APIs ---
       // --- Booking Admin APIs (admin, staff) ---
       server.middlewares.use(async (req: any, res: any, next: any) => {
@@ -828,7 +838,12 @@ function seedApiPlugin() {
         const { parse } = await import('cookie');
         const { verifyJwt } = await import('./src/lib/auth/jwt.js');
         const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
+        let token = null;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+          token = req.headers.authorization.split(' ')[1];
+        } else {
+          token = cookies['auth_token'];
+        }
         if (!token) { res.statusCode = 401; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Unauthorized' })); }
         const payload = verifyJwt(token);
         if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
@@ -961,7 +976,12 @@ function seedApiPlugin() {
         const { parse } = await import('cookie');
         const { verifyJwt } = await import('./src/lib/auth/jwt.js');
         const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
+        let token = null;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+          token = req.headers.authorization.split(' ')[1];
+        } else {
+          token = cookies['auth_token'];
+        }
         const payload = token ? verifyJwt(token) : null;
         const isAdmin = !!payload && payload.role === 'admin';
         const isStaff = !!payload && ['admin', 'staff'].includes(payload.role);
@@ -1151,7 +1171,12 @@ function seedApiPlugin() {
         const { parse } = await import('cookie');
         const { verifyJwt } = await import('./src/lib/auth/jwt.js');
         const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
+        let token = null;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+          token = req.headers.authorization.split(' ')[1];
+        } else {
+          token = cookies['auth_token'];
+        }
         const payload = token ? verifyJwt(token) : null;
         if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
         await dbConnect();
@@ -1249,7 +1274,12 @@ function seedApiPlugin() {
         const { parse } = await import('cookie');
         const { verifyJwt } = await import('./src/lib/auth/jwt.js');
         const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
+        let token = null;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+          token = req.headers.authorization.split(' ')[1];
+        } else {
+          token = cookies['auth_token'];
+        }
         const payload = token ? verifyJwt(token) : null;
 
         if (!payload || !['admin', 'staff'].includes(payload.role)) {
@@ -2300,11 +2330,9 @@ function homeApiPlugin() {
       });
 
       // POST /api/stories - Create new story
-      server.middlewares.use('/api/stories', async (req: any, res: any) => {
+      server.middlewares.use('/api/stories', async (req: any, res: any, next: any) => {
         if (req.method !== 'POST') {
-          res.statusCode = 405;
-          res.setHeader('Content-Type', 'application/json');
-          return res.end(JSON.stringify({ success: false, error: 'Method Not Allowed' }));
+          return next();
         }
 
         try {
@@ -2969,11 +2997,11 @@ function communityHubApiPlugin() {
               tags: featuredStory.tags,
               likeCount: featuredStory.likeCount,
               createdAt: featuredStory.createdAt.toISOString(),
-              author: {
-                _id: featuredStory.author._id.toString(),
-                name: (featuredStory.author as any).name,
+              author: featuredStory.author ? {
+                _id: (featuredStory.author as any)._id?.toString() || 'unknown',
+                name: (featuredStory.author as any).name || 'Unknown User',
                 avatar: (featuredStory.author as any).avatar
-              }
+              } : { _id: 'unknown', name: 'Unknown User', avatar: '' }
             } : null,
 
             latestStories: latestStories.map(story => ({
@@ -2984,11 +3012,11 @@ function communityHubApiPlugin() {
               tags: story.tags,
               likeCount: story.likeCount,
               createdAt: story.createdAt.toISOString(),
-              author: {
-                _id: story.author._id.toString(),
-                name: (story.author as any).name,
+              author: story.author ? {
+                _id: (story.author as any)._id?.toString() || 'unknown',
+                name: (story.author as any).name || 'Unknown User',
                 avatar: (story.author as any).avatar
-              }
+              } : { _id: 'unknown', name: 'Unknown User', avatar: '' }
             })),
 
             trendingTags: trendingTags.map(tag => ({
@@ -3042,7 +3070,7 @@ export default defineConfig(({ mode }) => {
   // manually assign every server-side variable that our application's backend
   // logic (like auth utilities) will need.
   process.env.MONGODB_URI = env.MONGODB_URI; // Keep existing variables
-  process.env.JWT_SECRET = env.JWT_SECRET;
+  process.env.JWT_SECRET = env.JWT_SECRET || 'dev_secret_change_me'; // <--- ADDED FALLBACK TO MATCH SERVER
   process.env.JWT_EXPIRES_IN = env.JWT_EXPIRES_IN; // Also propagate this for the login endpoint
   // --- END DEFINITIVE FIX ---
 
@@ -3062,7 +3090,7 @@ export default defineConfig(({ mode }) => {
       // Conditionally enable the seeding API only in the 'development' environment.
       mode === 'development' ? seedApiPlugin() : null,
       mode === 'development' ? homeApiPlugin() : null,
-      mode === 'development' ? authApiPlugin() : null,
+      // mode === 'development' ? authApiPlugin() : null, // DISABLED: Use backend auth instead
       mode === 'development' ? publicToursApiPlugin() : null,
       mode === 'development' ? userJourneysApiPlugin() : null,
       mode === 'development' ? communityHubApiPlugin() : null,
@@ -3077,6 +3105,66 @@ export default defineConfig(({ mode }) => {
     ].filter(Boolean) as any,
     server: {
       proxy: {
+        // Proxy /api/partner/* to Backend at 4000
+        '/api/partner': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/auth/* to Backend at 4000
+        '/api/auth': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/upload/* to Backend at 4000
+        '/api/upload': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/hotels/* to Backend at 4000
+        '/api/hotels': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/bookings/* to Backend at 4000
+        '/api/bookings': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/chat/* to Backend at 4000
+        '/api/chat': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/flights/* to Backend at 4000
+        '/api/flights': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/transport/* to Backend at 4000
+        '/api/transport': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/community/* to Backend at 4000
+        '/api/community': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/stories/* to Backend at 4000
+        '/api/stories': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
         // Proxy /api/ai-tours/* to AI service at /v1/tours/*
         '/api/ai-tours': {
           target: 'http://127.0.0.1:8081',

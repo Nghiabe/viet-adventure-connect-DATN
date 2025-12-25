@@ -360,21 +360,21 @@ export default function ToursPage() {
                     </td>
                     <td className="p-3 text-right">
                       <div className="font-medium">
-                        {tour.price.toLocaleString('vi-VN')} ₫
+                        {(tour.price || 0).toLocaleString('vi-VN')} ₫
                       </div>
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <span className="font-medium">{tour.averageRating.toFixed(1)}</span>
-                        <span className="text-muted-foreground">({tour.reviewCount})</span>
+                        <span className="font-medium">{(tour.averageRating || 0).toFixed(1)}</span>
+                        <span className="text-muted-foreground">({tour.reviewCount || 0})</span>
                       </div>
                     </td>
                     <td className="p-3 text-center">
-                      <div className="font-medium">{tour.bookingCount}</div>
+                      <div className="font-medium">{tour.bookingCount || 0}</div>
                     </td>
                     <td className="p-3 text-right">
                       <div className="font-medium text-green-600">
-                        {tour.totalRevenue.toLocaleString('vi-VN')} ₫
+                        {(tour.totalRevenue || 0).toLocaleString('vi-VN')} ₫
                       </div>
                     </td>
                     <td className="p-3 text-center">

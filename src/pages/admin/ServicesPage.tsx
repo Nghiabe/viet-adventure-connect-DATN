@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +11,6 @@ import {
 import {
     MoreVertical,
     Search,
-    Filter,
     ChevronLeft,
     ChevronRight,
     Hotel,
@@ -23,85 +21,29 @@ import {
     Star
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from '@/components/ui/sonner';
-import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { adminService } from '@/services/adminService';
 
-// Mock Data Types
+// Types
 type ServiceType = 'hotel' | 'flight' | 'train' | 'bus';
 
 interface ServiceItem {
-    id: string;
+    _id: string; // MongoDB ID uses _id
     type: ServiceType;
     name: string;
-    provider: {
-        id: string;
+    owner: {
+        _id: string;
         name: string;
     };
     price: number;
     location?: string;
     route?: string;
     rating: number;
-    reviewCount: number;
-    totalBookings: number;
+    reviewCount?: number; // Optional in model but good for UI
+    totalBookings?: number; // Calculated or aggregated
     status: 'active' | 'inactive' | 'pending';
     createdAt: string;
 }
-
-// Mock Data
-const MOCK_SERVICES: ServiceItem[] = [
-    {
-        id: '1',
-        type: 'hotel',
-        name: 'Sapa Horizon Hotel',
-        provider: { id: 'p1', name: 'Sapa Tourism' },
-        price: 1200000,
-        location: 'Sapa, Lao Cai',
-        rating: 4.8,
-        reviewCount: 120,
-        totalBookings: 450,
-        status: 'active',
-        createdAt: '2023-10-15T08:00:00Z'
-    },
-    {
-        id: '2',
-        type: 'flight',
-        name: 'VJ123: HAN - SGN',
-        provider: { id: 'p2', name: 'VietJet Air' },
-        price: 1500000,
-        route: 'Hanoi -> Ho Chi Minh',
-        rating: 4.2,
-        reviewCount: 85,
-        totalBookings: 1200,
-        status: 'active',
-        createdAt: '2023-11-01T10:30:00Z'
-    },
-    {
-        id: '3',
-        type: 'hotel',
-        name: 'Ha Long Bay Resort',
-        provider: { id: 'p3', name: 'Ha Long Services' },
-        price: 2500000,
-        location: 'Ha Long, Quang Ninh',
-        rating: 4.5,
-        reviewCount: 50,
-        totalBookings: 200,
-        status: 'pending', // Waiting for approval
-        createdAt: '2023-12-05T09:15:00Z'
-    },
-    {
-        id: '4',
-        type: 'train',
-        name: 'SE1: Hanoi - Sapa',
-        provider: { id: 'p4', name: 'Vietnam Railways' },
-        price: 500000,
-        route: 'Hanoi -> Lao Cai',
-        rating: 4.0,
-        reviewCount: 300,
-        totalBookings: 800,
-        status: 'inactive',
-        createdAt: '2023-09-20T14:45:00Z'
-    }
-];
 
 function StatusBadge({ status }: { status: string }) {
     const styles = {
@@ -109,14 +51,14 @@ function StatusBadge({ status }: { status: string }) {
         inactive: 'bg-gray-100 text-gray-700',
         pending: 'bg-yellow-100 text-yellow-700'
     };
-    const labels = {
+    const labels: Record<string, string> = {
         active: 'Hoạt động',
         inactive: 'Ngừng hoạt động',
         pending: 'Chờ duyệt'
     };
     return (
         <span className={`px-2 py-1 rounded text-xs font-semibold ${styles[status as keyof typeof styles]}`}>
-            {labels[status as keyof typeof labels] || status}
+            {labels[status] || status}
         </span>
     );
 }
@@ -137,27 +79,57 @@ export default function ServicesPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
-    const navigate = useQueryClient(); // Just for mock hydration if needed
+    const queryClient = useQueryClient();
 
-    // Filter data (Mocking API behavior)
-    const filteredServices = MOCK_SERVICES.filter(service => {
-        const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            service.provider.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || service.status === statusFilter;
-        const matchesType = typeFilter === 'all' || service.type === typeFilter;
-        return matchesSearch && matchesStatus && matchesType;
+    // Fetch Services
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ['admin-services', currentPage, itemsPerPage, searchTerm, statusFilter, typeFilter],
+        queryFn: () => adminService.getServices({
+            page: currentPage,
+            limit: itemsPerPage,
+            search: searchTerm,
+            status: statusFilter,
+            type: typeFilter
+        })
     });
 
-    const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
-    const currentServices = filteredServices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    // Mutations
+    const updateStatusMutation = useMutation({
+        mutationFn: ({ id, status }: { id: string; status: 'active' | 'inactive' }) =>
+            adminService.updateServiceStatus(id, status),
+        onSuccess: () => {
+            toast.success('Cập nhật trạng thái thành công');
+            queryClient.invalidateQueries({ queryKey: ['admin-services'] });
+        },
+        onError: () => toast.error('Cập nhật thất bại')
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => adminService.deleteService(id),
+        onSuccess: () => {
+            toast.success('Xóa dịch vụ thành công');
+            queryClient.invalidateQueries({ queryKey: ['admin-services'] });
+        },
+        onError: () => toast.error('Xóa thất bại')
+    });
 
     const handleDelete = (id: string) => {
-        toast.success(`Dịch vụ ${id} đã được xóa (Demo)`);
+        if (confirm('Bạn có chắc chắn muốn xóa dịch vụ này?')) {
+            deleteMutation.mutate(id);
+        }
     };
 
     const handleApprove = (id: string) => {
-        toast.success(`Dịch vụ ${id} đã được duyệt (Demo)`);
+        updateStatusMutation.mutate({ id, status: 'active' });
     };
+
+    const handleSuspend = (id: string) => {
+        updateStatusMutation.mutate({ id, status: 'inactive' });
+    };
+
+    const services: ServiceItem[] = data?.data || [];
+    const totalPages = data?.pagination?.pages || 1;
+    const totalItems = data?.pagination?.total || 0;
 
     return (
         <div className="p-6 space-y-6">
@@ -167,9 +139,9 @@ export default function ServicesPage() {
                     <h1 className="text-2xl font-bold">Quản lý Dịch vụ</h1>
                     <p className="text-muted-foreground">Kiểm duyệt và quản lý các dịch vụ (Khách sạn, Vé xe, ...)</p>
                 </div>
-                <div className="flex gap-2">
+                {/* <div className="flex gap-2">
                     <Button>Thêm Dịch vụ</Button>
-                </div>
+                </div> */}
             </div>
 
             {/* Filters */}
@@ -225,19 +197,23 @@ export default function ServicesPage() {
                                 <th className="p-3 text-left font-medium">Chi tiết</th>
                                 <th className="p-3 text-right font-medium">Giá</th>
                                 <th className="p-3 text-center font-medium">Đánh giá</th>
-                                <th className="p-3 text-center font-medium">Bookings</th>
+                                {/* <th className="p-3 text-center font-medium">Bookings</th> */}
                                 <th className="p-3 text-center font-medium">Trạng thái</th>
                                 <th className="p-3 text-center font-medium">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {currentServices.length === 0 ? (
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={8} className="text-center py-8 text-muted-foreground">Đang tải dữ liệu...</td>
+                                </tr>
+                            ) : services.length === 0 ? (
                                 <tr>
                                     <td colSpan={8} className="text-center py-8 text-muted-foreground">Không tìm thấy dịch vụ nào</td>
                                 </tr>
                             ) : (
-                                currentServices.map((service) => (
-                                    <tr key={service.id} className="border-t border-border hover:bg-secondary/20 transition-colors">
+                                services.map((service) => (
+                                    <tr key={service._id} className="border-t border-border hover:bg-secondary/20 transition-colors">
                                         <td className="p-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex-shrink-0 w-10 h-10 bg-secondary rounded flex items-center justify-center">
@@ -246,14 +222,14 @@ export default function ServicesPage() {
                                                 <div>
                                                     <div className="font-medium">{service.name}</div>
                                                     <div className="text-xs text-muted-foreground capitalize flex items-center gap-1">
-                                                        {service.type} <span className="text-[10px] bg-slate-100 px-1 rounded">ID: {service.id}</span>
+                                                        {service.type} <span className="text-[10px] bg-slate-100 px-1 rounded">ID: {service._id.slice(-6)}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="p-3">
-                                            <div className="text-sm">{service.provider.name}</div>
-                                            <div className="text-xs text-muted-foreground">ID: {service.provider.id}</div>
+                                            <div className="text-sm">{service.owner?.name || 'Unknown'}</div>
+                                            {/* <div className="text-xs text-muted-foreground">ID: {service.owner?._id}</div> */}
                                         </td>
                                         <td className="p-3">
                                             <div className="text-sm">
@@ -269,13 +245,13 @@ export default function ServicesPage() {
                                         </td>
                                         <td className="p-3 text-center">
                                             <div className="flex items-center justify-center gap-1 text-yellow-500 font-bold">
-                                                <Star className="h-3 w-3 fill-current" /> {service.rating}
+                                                <Star className="h-3 w-3 fill-current" /> {service.rating || 0}
                                             </div>
-                                            <div className="text-xs text-muted-foreground text-center">({service.reviewCount})</div>
+                                            <div className="text-xs text-muted-foreground text-center">({service.reviewCount || 0})</div>
                                         </td>
-                                        <td className="p-3 text-center font-medium">
-                                            {service.totalBookings}
-                                        </td>
+                                        {/* <td className="p-3 text-center font-medium">
+                                            {service.totalBookings || 0}
+                                        </td> */}
                                         <td className="p-3 text-center">
                                             <StatusBadge status={service.status} />
                                         </td>
@@ -287,11 +263,24 @@ export default function ServicesPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => handleApprove(service.id)}>Duyệt / Kích hoạt</DropdownMenuItem>
-                                                    <DropdownMenuItem>Chỉnh sửa</DropdownMenuItem>
+                                                    {service.status === 'pending' && (
+                                                        <DropdownMenuItem onClick={() => handleApprove(service._id)}>
+                                                            Duyệt / Kích hoạt
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {service.status === 'inactive' && (
+                                                        <DropdownMenuItem onClick={() => handleApprove(service._id)}>
+                                                            Kích hoạt lại
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {service.status === 'active' && (
+                                                        <DropdownMenuItem onClick={() => handleSuspend(service._id)} className="text-yellow-600">
+                                                            Ngừng hoạt động
+                                                        </DropdownMenuItem>
+                                                    )}
                                                     <DropdownMenuItem
                                                         className="text-red-500"
-                                                        onClick={() => handleDelete(service.id)}
+                                                        onClick={() => handleDelete(service._id)}
                                                     >
                                                         Xóa
                                                     </DropdownMenuItem>
@@ -309,7 +298,7 @@ export default function ServicesPage() {
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between px-6 py-4 border-t border-border">
                         <div className="text-sm text-muted-foreground">
-                            Trang {currentPage} của {totalPages} ({filteredServices.length} dịch vụ)
+                            Trang {currentPage} của {totalPages} ({totalItems} dịch vụ)
                         </div>
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>

@@ -15,7 +15,10 @@ import {
     CreditCard,
     ShieldCheck,
     Plane,
-    ChevronRight
+    ChevronRight,
+    Hotel,
+    Bus,
+    MessageCircle
 } from 'lucide-react';
 
 import apiClient from '@/services/apiClient';
@@ -38,7 +41,13 @@ interface BookingDetail {
     participantsBreakdown: { adults: number; children: number };
     totalPrice: number;
     paymentMethod: string;
-    tour: {
+    type: 'tour' | 'hotel' | 'flight' | 'transport'; // Added type
+    serviceInfo?: {
+        title?: string;
+        image?: string;
+        destination?: string;
+    };
+    tour?: {
         _id: string;
         title: string;
         mainImage?: string;
@@ -47,6 +56,16 @@ interface BookingDetail {
         itinerary?: Array<{ day: number; title: string; description: string }>;
         destination?: { name: string };
         location?: string;
+    };
+    partnerService?: {
+        _id: string;
+        name: string;
+        address?: string;
+        image?: string;
+        type?: string;
+        location?: string;
+        city?: string;
+        description?: string;
     };
     createdAt: string;
 }
@@ -58,7 +77,7 @@ export default function BookingDetailPage() {
     const { data: booking, isLoading, isError, error } = useQuery({
         queryKey: ['booking', id],
         queryFn: async () => {
-            const res = await apiClient.get<BookingDetail>(`/bookings/detail?id=${id}`);
+            const res = await apiClient.get<BookingDetail>(`/bookings/${id}`);
             if (!res.success || !res.data) {
                 throw new Error(res.error || 'Failed to fetch booking details');
             }
@@ -99,7 +118,18 @@ export default function BookingDetailPage() {
         );
     }
 
-    const { tour } = booking;
+    // Normalize Data for Display (Handle Tour vs Hotel vs Service)
+    const displayData = {
+        title: booking.serviceInfo?.title || booking.tour?.title || booking.partnerService?.name || 'Chi tiết đặt chỗ',
+        image: booking.serviceInfo?.image || booking.tour?.mainImage || booking.partnerService?.image || "",
+        location: booking.serviceInfo?.destination || booking.tour?.location || booking.tour?.destination?.name || booking.partnerService?.address || booking.partnerService?.location || 'Việt Nam',
+        duration: booking.tour?.duration || 'Linh hoạt',
+        route: booking.tour?.route || '',
+        description: booking.partnerService?.description || '',
+        isHotel: booking.type === 'hotel' || (!booking.tour && !!booking.partnerService),
+        isTour: booking.type === 'tour' || !!booking.tour
+    };
+
     const isUpcoming = ['pending', 'confirmed'].includes(booking.status);
 
     return (
@@ -117,7 +147,7 @@ export default function BookingDetailPage() {
                         Chuyến đi của tôi
                     </Link>
                     <ChevronRight className="w-4 h-4" />
-                    <span className="font-medium text-foreground truncate max-w-[200px]">{tour.title}</span>
+                    <span className="font-medium text-foreground truncate max-w-[200px]">{displayData.title}</span>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -128,8 +158,8 @@ export default function BookingDetailPage() {
                         <div className="bg-background rounded-xl overflow-hidden shadow-sm border">
                             <div className="relative h-64 md:h-80 w-full group">
                                 <ResilientImage
-                                    src={tour.mainImage || ""}
-                                    alt={tour.title}
+                                    src={displayData.image}
+                                    alt={displayData.title}
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -138,19 +168,28 @@ export default function BookingDetailPage() {
                                         <Badge className={`${booking.status === 'confirmed' ? 'bg-green-500' : booking.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-500'} border-none text-white px-3 py-1 text-sm font-medium uppercase tracking-wide`}>
                                             {translateStatus(booking.status, t)}
                                         </Badge>
-                                        <div className="flex items-center gap-1 text-xs md:text-sm bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">
-                                            <Clock className="w-3 h-3 md:w-4 md:h-4" />
-                                            <span>{tour.duration}</span>
-                                        </div>
+
+                                        {displayData.isTour && (
+                                            <div className="flex items-center gap-1 text-xs md:text-sm bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">
+                                                <Clock className="w-3 h-3 md:w-4 md:h-4" />
+                                                <span>{displayData.duration}</span>
+                                            </div>
+                                        )}
+                                        {displayData.isHotel && (
+                                            <div className="flex items-center gap-1 text-xs md:text-sm bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">
+                                                <Hotel className="w-3 h-3 md:w-4 md:h-4" />
+                                                <span>Lưu trú</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <h1 className="text-2xl md:text-4xl font-bold leading-tight mb-2 drop-shadow-md">{tour.title}</h1>
+                                    <h1 className="text-2xl md:text-4xl font-bold leading-tight mb-2 drop-shadow-md">{displayData.title}</h1>
                                     <div className="flex items-center gap-2 text-gray-200 text-sm md:text-base">
                                         <MapPin className="w-4 h-4" />
-                                        <span>{tour.location || tour.destination?.name || 'Việt Nam'}</span>
-                                        {tour.route && (
+                                        <span>{displayData.location}</span>
+                                        {displayData.route && (
                                             <>
                                                 <span className="mx-1">•</span>
-                                                <span className="opacity-90">{tour.route}</span>
+                                                <span className="opacity-90">{displayData.route}</span>
                                             </>
                                         )}
                                     </div>
@@ -158,8 +197,8 @@ export default function BookingDetailPage() {
                             </div>
                         </div>
 
-                        {/* Itinerary Section */}
-                        {tour.itinerary && tour.itinerary.length > 0 && (
+                        {/* Itinerary Section (Only for Tours) */}
+                        {displayData.isTour && booking.tour?.itinerary && booking.tour.itinerary.length > 0 && (
                             <Card className="border-none shadow-sm">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-xl">
@@ -170,7 +209,7 @@ export default function BookingDetailPage() {
                                 </CardHeader>
                                 <CardContent className="pt-0">
                                     <div className="space-y-8 pl-2">
-                                        {tour.itinerary.map((item, idx) => (
+                                        {booking.tour.itinerary.map((item, idx) => (
                                             <div key={idx} className="relative pl-8 border-l-2 border-primary/20 last:border-l-0 pb-8 last:pb-0">
                                                 <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary ring-4 ring-primary/20" />
                                                 <div>
@@ -184,7 +223,22 @@ export default function BookingDetailPage() {
                             </Card>
                         )}
 
-                        {!tour.itinerary?.length && (
+                        {/* Description Section (For Hotels/Others) */}
+                        {displayData.isHotel && displayData.description && (
+                            <Card className="border-none shadow-sm">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-xl">
+                                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                                        Thông tin dịch vụ
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-muted-foreground leading-relaxed whitespace-pre-line">{displayData.description}</p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {displayData.isTour && !booking.tour?.itinerary?.length && (
                             <Card className="border-none shadow-sm text-center py-12">
                                 <CardContent>
                                     <p className="text-muted-foreground italic">chi tiết lịch trình đang được cập nhật...</p>
@@ -258,13 +312,48 @@ export default function BookingDetailPage() {
 
                                 {/* Actions */}
                                 <div className="pt-2 space-y-3">
-                                    <Button className="w-full gap-2 font-medium" size="lg">
+                                    <Button
+                                        className="w-full gap-2 font-medium bg-blue-600 hover:bg-blue-700 text-white"
+                                        size="lg"
+                                        asChild
+                                    >
+                                        <Link to={`/chat/${id}`}>
+                                            <MessageCircle className="w-4 h-4" />
+                                            Chat với nhà cung cấp
+                                        </Link>
+                                    </Button>
+
+                                    <Button
+                                        className="w-full gap-2 font-medium"
+                                        size="lg"
+                                        variant="outline"
+                                        onClick={() => window.print()}
+                                    >
                                         <Printer className="w-4 h-4" />
                                         In phiếu xác nhận
                                     </Button>
 
                                     {isUpcoming && (
-                                        <Button variant="outline" className="w-full text-destructive border-destructive/20 hover:bg-destructive/5 hover:text-destructive">
+                                        <Button
+                                            variant="outline"
+                                            className="w-full text-destructive border-destructive/20 hover:bg-destructive/5 hover:text-destructive"
+                                            onClick={async () => {
+                                                if (!window.confirm("Bạn có chắc chắn muốn hủy đặt chỗ này không?")) return;
+
+                                                try {
+                                                    const res = await apiClient.patch(`/bookings/${id}/cancel`, {});
+                                                    if (res.success) {
+                                                        // Refresh data
+                                                        // Ideally use queryClient.invalidateQueries, but basic reload works for now or let react-query refetch
+                                                        window.location.reload();
+                                                    } else {
+                                                        alert(res.error || "Không thể hủy đặt chỗ");
+                                                    }
+                                                } catch (e: any) {
+                                                    alert(e.message || "Có lỗi xảy ra");
+                                                }
+                                            }}
+                                        >
                                             Hủy đặt chỗ
                                         </Button>
                                     )}

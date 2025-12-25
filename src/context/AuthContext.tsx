@@ -63,20 +63,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       console.log('[AuthContext] Attempting login for:', email);
       const response = await apiClient.post<IUser>('/auth/login', { email, password });
-      
+
       // --- THE FIX ---
       // Guard clause: check for success and data existence
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Login failed');
       }
-      
+
       // Only set user and navigate on success
       console.log('[AuthContext] Login successful for:', response.data.email);
       setUser(response.data);
-      
+
       // Redirect based on role after successful login
       if (response.data.role === 'admin' || response.data.role === 'staff') {
         navigate('/dashboard');
@@ -97,16 +97,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       console.log('[AuthContext] Attempting registration for:', userData.email);
       const response = await apiClient.post<IUser>('/auth/register', userData);
-      
+
       // --- THE FIX ---
       // Guard clause: check for success and data existence
       if (!response.success || !response.data) {
         throw new Error(response.error || 'Registration failed');
       }
-      
+
       // Only set user and navigate on success
       console.log('[AuthContext] Registration successful for:', response.data.email);
       setUser(response.data);
@@ -124,28 +124,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       console.log('[AuthContext] Logging out user:', user?.email);
-      
+
       // 1. Call the backend API to clear the secure cookie
       await apiClient.post('/auth/logout', {});
-      
+
       // 2. Clear the user state in the context
       setUser(null);
-      
+
       // 3. Redirect the user to the homepage
       navigate('/');
-      
+
       // 4. Provide clear user feedback
       toast.success('Đăng xuất thành công.');
-      
+
       console.log('[AuthContext] Logout successful');
     } catch (error: any) {
       console.error('[AuthContext] Logout error:', error);
-      
+
       // Failsafe: Even if the API call fails (e.g., network error),
       // ensure the user is logged out on the client-side for a consistent UX
       setUser(null);
       navigate('/');
-      
+
       // Still show success message - user intent was to log out
       toast.success('Đăng xuất thành công.');
     }

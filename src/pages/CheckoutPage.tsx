@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
+import { useAuth } from '@/context/AuthContext';
 import { useBooking } from '@/context/BookingContext';
 import apiClient from '@/services/apiClient';
 
@@ -29,6 +30,7 @@ type FormValues = z.infer<typeof schema>;
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { bookingDetails, clearBooking } = useBooking();
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!bookingDetails) navigate('/');
@@ -42,42 +44,90 @@ export default function CheckoutPage() {
   const { mutate: finalizeBooking, isPending } = useMutation({
     mutationFn: (finalBookingData: any) => apiClient.post<any>('/bookings', finalBookingData),
     onSuccess: (response: any) => {
-      if (!response?.success) throw new Error(response?.error || 'Đặt tour thất bại');
-      toast.success('Đặt tour thành công! Email xác nhận đang được gửi đến bạn.');
+      if (!response?.success) throw new Error(response?.error || 'Đặt dịch vụ thất bại');
+      toast.success('Đặt thành công! Email xác nhận đang được gửi đến bạn.');
       clearBooking();
       const id = response?.data?._id || response?.data?.id;
       navigate(`/booking/success/${id || ''}`);
     },
     onError: (error: any) => {
-      toast.error(error?.message || 'Không thể hoàn tất đặt tour. Vui lòng thử lại.');
+      toast.error(error?.message || 'Không thể hoàn tất đặt dịch vụ. Vui lòng thử lại.');
     }
   });
 
   const onSubmit = (formData: FormValues) => {
     if (!bookingDetails) return;
-    const finalData = {
-      tourId: bookingDetails.tourId,
-      bookingDate: bookingDetails.bookingDate,
-      participants: bookingDetails.participantsTotal,
-      participantsBreakdown: bookingDetails.participantsBreakdown,
+
+    if (!user || (!user._id && !user.id)) {
+      toast.error("Vui lòng đăng nhập để tiếp tục.");
+      return;
+    }
+
+    // Construct payload based on type
+    let finalData: any = {
+      userId: user._id || user.id, // Ensure userId is present
       customerInfo: {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
         note: formData.note,
       },
+      // Backend expects these at top level for contact info sometimes, strictly follows schema
+      contactName: formData.name,
+      contactEmail: formData.email,
       paymentMethod: formData.paymentMethod,
     };
+
+    if (bookingDetails.type === 'hotel') {
+      finalData = {
+        ...finalData,
+        type: 'hotel',
+        hotelId: bookingDetails.hotelId,
+        hotelName: bookingDetails.title,
+        checkin: bookingDetails.checkIn,
+        checkout: bookingDetails.checkOut,
+        nights: bookingDetails.nights,
+        bedType: bookingDetails.bedType,
+        guests: bookingDetails.participantsTotal,
+        unitPrice: bookingDetails.unitPrice,
+        totalPrice: bookingDetails.clientComputedTotal,
+        providerUrl: bookingDetails.providerUrl,
+        raw: bookingDetails.raw
+      };
+    } else if (['flight', 'train', 'bus'].includes(bookingDetails.type || '')) {
+      finalData = {
+        ...finalData,
+        type: bookingDetails.type,
+        // Pass generic transport details
+        operator: bookingDetails.operator || bookingDetails.airline,
+        transportNumber: bookingDetails.transportNumber || bookingDetails.flightNumber,
+        origin: bookingDetails.origin,
+        destination: bookingDetails.destination,
+        class: bookingDetails.class,
+        bookingDate: bookingDetails.bookingDate,
+        duration: bookingDetails.duration,
+        unitPrice: bookingDetails.unitPrice,
+        totalPrice: bookingDetails.clientComputedTotal,
+        participants: bookingDetails.participantsTotal
+      };
+    } else {
+      // Default to Tour
+      finalData = {
+        ...finalData,
+        type: 'tour',
+        tourId: bookingDetails.tourId,
+        bookingDate: bookingDetails.bookingDate,
+        participants: bookingDetails.participantsTotal,
+        participantsBreakdown: bookingDetails.participantsBreakdown,
+      };
+    }
+
     finalizeBooking(finalData);
   };
 
   if (!bookingDetails) return null;
 
-  const adults = bookingDetails.participantsBreakdown?.adults || 0;
-  const children = bookingDetails.participantsBreakdown?.children || 0;
-  const adultsTotal = bookingDetails.unitPrice * adults;
-  const childrenTotal = bookingDetails.unitPrice * 0.7 * children;
-  const total = adultsTotal + childrenTotal;
+  const total = bookingDetails.clientComputedTotal;
 
   return (
     <div className="min-h-screen bg-background">
@@ -113,7 +163,7 @@ export default function CheckoutPage() {
 
               <div>
                 <Label>Phương thức thanh toán</Label>
-                <RadioGroup defaultValue="bank_transfer" className="mt-2" onValueChange={(v)=> (document.getElementById('pm-'+v) as HTMLInputElement | null)?.click()}>
+                <RadioGroup defaultValue="bank_transfer" className="mt-2" onValueChange={(v) => (document.getElementById('pm-' + v) as HTMLInputElement | null)?.click()}>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="bank_transfer" id="bank_transfer" />
                     <Label htmlFor="bank_transfer">Chuyển khoản ngân hàng</Label>
@@ -144,30 +194,79 @@ export default function CheckoutPage() {
           <Card className="p-6 space-y-3">
             <h2 className="text-xl font-semibold">Tóm tắt đơn hàng</h2>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Tour</span>
-              <span className="font-medium">{bookingDetails.tourName}</span>
+              <span className="text-muted-foreground">
+                {bookingDetails.type === 'hotel' ? 'Khách sạn' :
+                  bookingDetails.type === 'flight' ? 'Chuyến bay' :
+                    bookingDetails.type === 'train' ? 'Tàu hỏa' :
+                      bookingDetails.type === 'bus' ? 'Xe khách' : 'Tour'}
+              </span>
+              <span className="font-medium text-right max-w-[200px] truncate">{bookingDetails.title || bookingDetails.tourName}</span>
             </div>
-            {bookingDetails.duration && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Thời lượng</span>
-                <span className="font-medium">{bookingDetails.duration}</span>
-              </div>
+
+            {bookingDetails.type === 'hotel' ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Nhận phòng</span>
+                  <span className="font-medium">{bookingDetails.checkIn}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Trả phòng</span>
+                  <span className="font-medium">{bookingDetails.checkOut}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Thời gian</span>
+                  <span className="font-medium">{bookingDetails.nights} đêm</span>
+                </div>
+                {bookingDetails.bedType && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Loại phòng</span>
+                    <span className="font-medium">{bookingDetails.bedType}</span>
+                  </div>
+                )}
+              </>
+            ) : ['flight', 'train', 'bus'].includes(bookingDetails.type || '') ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Hãng</span>
+                  <span className="font-medium">{bookingDetails.operator || bookingDetails.airline} ({bookingDetails.transportNumber || bookingDetails.flightNumber || 'N/A'})</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Hành trình</span>
+                  <span className="font-medium">
+                    {bookingDetails.origin?.station || bookingDetails.origin?.code} - {bookingDetails.destination?.station || bookingDetails.destination?.code}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Ngày đi</span>
+                  <span className="font-medium">{new Date(bookingDetails.bookingDate!).toLocaleDateString('vi-VN')}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Hạng vé</span>
+                  <span className="font-medium">{bookingDetails.class}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                {bookingDetails.duration && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Thời lượng</span>
+                    <span className="font-medium">{bookingDetails.duration}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Ngày khởi hành</span>
+                  <span className="font-medium">{new Date(bookingDetails.bookingDate!).toLocaleDateString('vi-VN')}</span>
+                </div>
+              </>
             )}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Ngày khởi hành</span>
-              <span className="font-medium">{new Date(bookingDetails.bookingDate).toLocaleDateString('vi-VN')}</span>
-            </div>
+
             <Separator />
+
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Người lớn x {adults}</span>
-              <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(adultsTotal)}₫</span>
+              <span className="text-muted-foreground">Số lượng khách</span>
+              <span className="font-medium">{bookingDetails.participantsTotal}</span>
             </div>
-            {children > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Trẻ em x {children}</span>
-                <span className="font-medium">{new Intl.NumberFormat('vi-VN').format(childrenTotal)}₫</span>
-              </div>
-            )}
+
             <div className="flex items-center justify-between border-t pt-2">
               <span className="font-semibold">Tổng cộng</span>
               <span className="font-semibold text-primary">{new Intl.NumberFormat('vi-VN').format(total)}₫</span>
@@ -176,10 +275,6 @@ export default function CheckoutPage() {
         </aside>
       </main>
       <Footer />
-    </div>
+    </div >
   );
 }
-
-
-
-

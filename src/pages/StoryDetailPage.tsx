@@ -102,6 +102,12 @@ const StoryDetailPage = () => {
     const story = data;
     const { toast } = useToast();
 
+    console.log('StoryDetailPage State:', { isLoading, error, data, id });
+
+    if (story) {
+        console.log('Story Object:', story);
+    }
+
     const handleChat = async () => {
         // Check auth (simplified for now, ideally useAuth context)
         // Assuming apiClient handles 401 redirection or we can check a stored token/user

@@ -31,6 +31,7 @@ interface Story {
 const StoryDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { toast } = useToast();
 
     const { data, isLoading, error } = useQuery({
         queryKey: ['story', id],
@@ -91,6 +92,7 @@ const StoryDetailPage = () => {
                 <main className="pt-20">
                     <div className="container mx-auto px-4 py-8 text-center">
                         <h2 className="text-2xl font-bold text-red-500 mb-4">Không tìm thấy bài viết</h2>
+                        <p className="text-gray-500 mb-6">Có thể bài viết đã bị xóa hoặc xảy ra lỗi kết nối.</p>
                         <Button onClick={() => navigate('/community')}>Quay lại Cộng đồng</Button>
                     </div>
                 </main>
@@ -100,19 +102,11 @@ const StoryDetailPage = () => {
     }
 
     const story = data;
-    const { toast } = useToast();
-
-    console.log('StoryDetailPage State:', { isLoading, error, data, id });
-
-    if (story) {
-        console.log('Story Object:', story);
-    }
+    console.log('[StoryDetail] Rendering story:', story);
 
     const handleChat = async () => {
-        // Check auth (simplified for now, ideally useAuth context)
-        // Assuming apiClient handles 401 redirection or we can check a stored token/user
-        // But for now let's just try to call the API
         try {
+            if (!story?._id) return;
             const res = await apiClient.post<any>('/chat/inquiry', { storyId: story._id });
             if (res.success && res.data) {
                 navigate(`/chat/${res.data.bookingId}`);
@@ -151,19 +145,22 @@ const StoryDetailPage = () => {
                     </Button>
 
                     <article className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800">
-                        {story.coverImage && (
+                        {story?.coverImage && (
                             <div className="relative h-[400px] w-full">
                                 <img
                                     src={story.coverImage}
-                                    alt={story.title}
+                                    alt={story.title || 'Hình ảnh bài viết'}
                                     className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://placehold.co/800x400?text=No+Image';
+                                    }}
                                 />
                             </div>
                         )}
 
                         <div className="p-8">
                             <div className="flex flex-wrap gap-2 mb-6">
-                                {(story.tags || []).map((tag, index) => (
+                                {(story?.tags || []).map((tag, index) => (
                                     <Badge key={index} variant="secondary" className="px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 border-none">
                                         #{tag}
                                     </Badge>
@@ -171,25 +168,25 @@ const StoryDetailPage = () => {
                             </div>
 
                             <h1 className="text-4xl font-bold mb-6 text-gray-900 dark:text-gray-100 leading-tight">
-                                {story.title}
+                                {story?.title || 'Không có tiêu đề'}
                             </h1>
 
                             <div className="flex items-center justify-between mb-8 pb-8 border-b border-gray-100 dark:border-gray-800">
                                 <div className="flex items-center gap-4">
                                     <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
-                                        <AvatarImage src={story.author?.avatar} alt={story.author?.name} />
-                                        <AvatarFallback>{story.author?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                        <AvatarImage src={story?.author?.avatar} alt={story?.author?.name} />
+                                        <AvatarFallback>{story?.author?.name?.charAt(0) || 'U'}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{story.author?.name || 'Unknown Author'}</h3>
+                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{story?.author?.name || 'Tác giả ẩn danh'}</h3>
                                         <div className="flex items-center text-sm text-gray-500 gap-4">
                                             <span className="flex items-center">
                                                 <Calendar className="w-4 h-4 mr-1" />
-                                                {story.createdAt ? new Date(story.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                                                {story?.createdAt ? new Date(story.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                                             </span>
                                             <span className="flex items-center">
                                                 <Eye className="w-4 h-4 mr-1" />
-                                                {story.views || 0} lượt xem
+                                                {story?.views || 0} lượt xem
                                             </span>
                                         </div>
                                     </div>
@@ -209,13 +206,13 @@ const StoryDetailPage = () => {
                             </div>
 
                             <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                                {story.content}
+                                {story?.content || 'Nội dung đang được cập nhật...'}
                             </div>
 
                             <div className="mt-10 pt-8 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
                                 <div className="flex gap-4">
                                     <Button variant="ghost" className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50">
-                                        <Heart className="w-5 h-5" /> {story.likeCount} Yêu thích
+                                        <Heart className="w-5 h-5" /> {story?.likeCount || 0} Yêu thích
                                     </Button>
                                     <Button variant="ghost" className="gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
                                         <MessageSquare className="w-5 h-5" /> Bình luận

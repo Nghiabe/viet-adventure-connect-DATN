@@ -9,7 +9,7 @@ const PartnerServiceSchema = new mongoose.Schema({
     address: { type: String }, // Detailed address
     route: { type: String }, // For transport
     rating: { type: Number, default: 0 },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    status: { type: String, enum: ['active', 'inactive', 'pending'], default: 'active' },
     image: { type: String, default: '' }, // Main thumbnail
     images: [String], // Gallery
     description: String,

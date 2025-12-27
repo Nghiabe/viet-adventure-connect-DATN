@@ -25,4 +25,21 @@ router.get('/lookup', async (req, res) => {
     }
 });
 
+// GET /api/destinations/:slug (Get detail by slug)
+router.get('/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const destination = await Destination.findOne({ slug }).lean();
+
+        if (!destination) {
+            return res.status(404).json({ success: false, error: 'Destination not found' });
+        }
+
+        res.json({ success: true, data: destination });
+    } catch (error) {
+        console.error('Get Destination Error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 export default router;

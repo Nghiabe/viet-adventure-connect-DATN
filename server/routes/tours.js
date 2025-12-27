@@ -1,5 +1,6 @@
 import express from 'express';
 import Tour from '../models/Tour.js';
+import Review from '../models/Review.js';
 import Destination from '../models/Destination.js'; // Import if needed for population reference check
 
 const router = express.Router();
@@ -89,7 +90,20 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Tour not found' });
         }
 
-        res.json({ success: true, data: tour });
+        // Fetch reviews for this tour
+        const reviews = await Review.find({ tour: id })
+            .populate('user', 'name avatar')
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .lean();
+
+        res.json({
+            success: true,
+            data: {
+                tour,
+                reviews: reviews || []
+            }
+        });
     } catch (error) {
         console.error('Get Tour Detail Error:', error);
         res.status(500).json({ success: false, error: 'Failed to fetch tour detail' });

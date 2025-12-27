@@ -16,6 +16,7 @@ import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import communityRouter from './routes/community.js';
 import chatRouter from './routes/chat.js';
+import homeRouter from './routes/home.js';
 import destinationRouter from './routes/destinations.js';
 import tourRouter from './routes/tours.js';
 import hotelRouter from './routes/hotels.js';

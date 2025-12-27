@@ -3091,25 +3091,28 @@ export default defineConfig(({ command, mode }) => {
   return {
     plugins: [
       react(),
-      // Conditionally enable the seeding API only in the 'development' environment.
-      isDev && mode === 'development' ? seedApiPlugin() : null,
-      isDev && mode === 'development' ? homeApiPlugin() : null,
-      // mode === 'development' ? authApiPlugin() : null, // DISABLED: Use backend auth instead
-      isDev && mode === 'development' ? publicToursApiPlugin() : null,
-      isDev && mode === 'development' ? userJourneysApiPlugin() : null,
-      isDev && mode === 'development' ? communityHubApiPlugin() : null,
-      isDev && mode === 'development' ? profileApiPlugin() : null,
-      // Pass env explicitly to the chat API plugin (DI pattern)
-      isDev && mode === 'development' ? chatApiPlugin(env) : null,
-      // NEW: Planner API plugin registered for dev mode
-      isDev && mode === 'development' ? plannerApiPlugin(env) : null,
-      isDev && mode === 'development' ? shareApiPlugin() : null,
-      isDev && mode === 'development' ? notificationApiPlugin() : null,
+      // --- DISABLED PLUGINS (Using Real Backend at port 4000 instead) ---
+      // isDev && mode === 'development' ? seedApiPlugin() : null,
+      // isDev && mode === 'development' ? homeApiPlugin() : null,
+      // isDev && mode === 'development' ? publicToursApiPlugin() : null,
+      // isDev && mode === 'development' ? userJourneysApiPlugin() : null,
+      // isDev && mode === 'development' ? communityHubApiPlugin() : null,
+      // isDev && mode === 'development' ? profileApiPlugin() : null,
+      // isDev && mode === 'development' ? chatApiPlugin(env) : null,
+      // isDev && mode === 'development' ? plannerApiPlugin(env) : null,
+      // isDev && mode === 'development' ? shareApiPlugin() : null,
+      // isDev && mode === 'development' ? notificationApiPlugin() : null,
 
     ].filter(Boolean) as any,
     server: {
       proxy: {
-        // Proxy /api/partner/* to Backend at 4000
+        // --- PROXY ALL API REQUESTS TO BACKEND (Port 4000) ---
+        // This ensures Local Dev matches Production logic.
+        '/api': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
         '/api/partner': {
           target: 'http://localhost:4000',
           changeOrigin: true,

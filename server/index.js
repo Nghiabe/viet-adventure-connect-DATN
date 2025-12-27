@@ -19,6 +19,10 @@ import chatRouter from './routes/chat.js';
 import destinationRouter from './routes/destinations.js';
 import tourRouter from './routes/tours.js';
 import hotelRouter from './routes/hotels.js';
+import flightRouter from './routes/flights.js';
+import transportRouter from './routes/transport.js';
+import bookingRouter from './routes/bookings.js';
+import userRouter from './routes/users.js';
 import PartnerService from './models/PartnerService.js';
 import { requireAuth } from './middleware/auth.js';
 
@@ -68,6 +72,10 @@ app.use('/api/home', homeRouter);
 app.use('/api/destinations', destinationRouter);
 app.use('/api/tours', tourRouter);
 app.use('/api/hotels', hotelRouter);
+app.use('/api/flights', flightRouter);
+app.use('/api/transport', transportRouter);
+app.use('/api/bookings', bookingRouter);
+app.use('/api/users', userRouter);
 
 // Serve static frontend files (must be AFTER API routes)
 const distPath = path.join(process.cwd(), 'dist');
@@ -230,648 +238,98 @@ app.get('/', (req, res) => {
 
 
 
-// GET /api/flights
-app.get('/api/flights', async (req, res) => {
-  try {
-    const { from, to, date, maxPrice, airlines, page = 1 } = req.query;
-    const query = { type: 'flight', status: 'active' };
 
-    // 1. Search by Route (from/to)
-    // We expect the 'route' field in PartnerService to contain "Hanoi - Danang" or similar
-    if (from || to) {
-      const parts = [];
-      if (from) parts.push(from);
-      if (to) parts.push(to);
 
-      // Simple regex approach: if we have both, look for both; if one, look for one
-      // This matches "Hanoi" and "Danang" regardless of order if we just want connectivity, 
-      // but usually flights are directional.
-      // Assuming 'route' string like "Hanoi - Danang"
-      if (from && to) {
-        query.route = { $regex: `${from}.*${to}`, $options: 'i' };
-      } else if (from) {
-        query.route = { $regex: from, $options: 'i' };
-      } else if (to) {
-        // This is loose, checking if 'to' is in the route string anywhere
-        // Ideally we check after the hyphen, but keep it simple for now
-        query.route = { $regex: to, $options: 'i' };
-      }
-    }
 
-    // 2. Price
-    if (maxPrice) {
-      query.price = { $lte: Number(maxPrice) };
-    }
 
-    // 3. Airlines (filtering by Name)
-    if (airlines) {
-      const airlineList = airlines.split(',');
-      if (airlineList.length > 0) {
-        // Case insensitive match for any of the airlines
-        query.name = { $in: airlineList.map(a => new RegExp(a, 'i')) };
-      }
-    }
 
-    // Pagination
-    const PAGE_SIZE = 12;
-    const pageNum = Math.max(1, Number(page));
-    const skip = (pageNum - 1) * PAGE_SIZE;
 
-    const total = await PartnerService.countDocuments(query);
-    const flightsDb = await PartnerService.find(query)
-      .skip(skip)
-      .limit(PAGE_SIZE);
 
-    // Map to IFlight-like structure
-    const flights = flightsDb.map(f => {
-      // Try to parse route "Code - Code" or "City - City"
-      // Fallback mock data if parsing fails
-      let originCode = 'HAN';
-      let destCode = 'SGN';
-      let originCity = 'Hà Nội';
-      let destCity = 'TP Hồ Chí Minh';
 
-      if (f.route) {
-        const parts = f.route.split('-').map(s => s.trim());
-        if (parts.length >= 2) {
-          originCity = parts[0];
-          destCity = parts[1];
-          // Mock codes based on city first 3 letters or random
-          originCode = originCity.substring(0, 3).toUpperCase();
-          destCode = destCity.substring(0, 3).toUpperCase();
-        }
-      }
-
-      return {
-        id: f._id,
-        airline: f.name,
-        flightNumber: `VN${Math.floor(Math.random() * 900) + 100}`,
-        origin: {
-          code: originCode,
-          city: originCity,
-          time: '08:00'
-        },
-        destination: {
-          code: destCode,
-          city: destCity,
-          time: '10:00'
-        },
-        duration: '2h 00m',
-        price: f.price,
-        type: 'Non-stop',
-        // Update mock logic: If strict stops filter exists, match it. Else random.
-        stops: (() => {
-          if (req.query.stops) {
-            const allowed = req.query.stops.split(',').map(Number);
-            return allowed[Math.floor(Math.random() * allowed.length)];
-          }
-          return Math.random() > 0.7 ? 1 : 0; // Mostly direct
-        })(),
-        // Update mock logic: If strict class filter exists, match it. Else random.
-        class: (() => {
-          if (req.query.classes) {
-            const allowed = req.query.classes.split(',');
-            return allowed[Math.floor(Math.random() * allowed.length)];
-          }
-          return Math.random() > 0.8 ? 'Business' : 'Economy';
-        })(),
-        date: date || new Date().toISOString().split('T')[0]
-      };
-    });
-
-    return res.json({
-      success: true,
-      data: flights,
-      total,
-      page: pageNum,
-      totalPages: Math.ceil(total / PAGE_SIZE)
-    });
-
-  } catch (err) {
-    console.error('Error in /api/flights:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Helper to escape regex special characters
-function escapeRegex(text) {
-  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-}
-
-// Helper to create flexible Vietnamese regex
-function createVietnameseRegex(keyword) {
-  if (!keyword) return '';
-
-  // 1. Normalize to basic latin to separate base char from diacritics (optional, but easier to map)
-  // But constructing the regex manually for common vowels is safer
-  const str = keyword.toLowerCase().trim();
-  let regexStr = '';
-
-  for (let char of str) {
-    if (['a', 'à', 'á', 'ạ', 'ả', 'ã', 'â', 'ầ', 'ấ', 'ậ', 'ẩ', 'ẫ', 'ă', 'ằ', 'ắ', 'ặ', 'ẳ', 'ẵ'].includes(char)) {
-      regexStr += '[aàáạảãâầấậẩẫăằắặẳẵ]';
-    } else if (['e', 'è', 'é', 'ẹ', 'ẻ', 'ẽ', 'ê', 'ề', 'ế', 'ệ', 'ể', 'ễ'].includes(char)) {
-      regexStr += '[eèéẹẻẽêềếệểễ]';
-    } else if (['i', 'ì', 'í', 'ị', 'ỉ', 'ĩ'].includes(char)) {
-      regexStr += '[iìíịỉĩ]';
-    } else if (['o', 'ò', 'ó', 'ọ', 'ỏ', 'õ', 'ô', 'ồ', 'ố', 'ộ', 'ổ', 'ỗ', 'ơ', 'ờ', 'ớ', 'ợ', 'ở', 'ỡ'].includes(char)) {
-      regexStr += '[oòóọỏõôồốộổỗơờớợởỡ]';
-    } else if (['u', 'ù', 'ú', 'ụ', 'ủ', 'ũ', 'ư', 'ừ', 'ứ', 'ự', 'ử', 'ữ'].includes(char)) {
-      regexStr += '[uùúụủũưừứựửữ]';
-    } else if (['y', 'ỳ', 'ý', 'ỵ', 'ỷ', 'ỹ'].includes(char)) {
-      regexStr += '[yỳýỵỷỹ]';
-    } else if (['d', 'đ'].includes(char)) {
-      regexStr += '[dđ]';
-    } else if (char === ' ') {
-      regexStr += '\\s+'; // Flexible whitespace
-    } else {
-      regexStr += escapeRegex(char);
-    }
-  }
-  return regexStr;
-}
-
-// GET /api/transport (Generic search for Flight, Train, Bus)
-app.get('/api/transport', async (req, res) => {
-  try {
-    const { type, from, to, date, page = 1 } = req.query;
-
-    // Validate type
-    if (!type || !['flight', 'train', 'bus'].includes(type)) {
-      if (!type) {
-        return res.status(400).json({ success: false, error: 'Transport type is required (flight, train, bus)' });
-      }
-    }
-
-    const query = { type, status: 'active' };
-
-    // Route matching with flexible Vietnamese regex
-    if (from || to) {
-      if (from && to) {
-        // Create flexible regex for both parts
-        const fromRegex = createVietnameseRegex(from);
-        const toRegex = createVietnameseRegex(to);
-        // Match "from ... to" with any characters in between
-        query.route = { $regex: `${fromRegex}.*${toRegex}`, $options: 'i' };
-      } else if (from) {
-        query.route = { $regex: createVietnameseRegex(from), $options: 'i' };
-      } else if (to) {
-        query.route = { $regex: createVietnameseRegex(to), $options: 'i' };
-      }
-    }
-
-    console.log(`[Transport Search] Type: ${type}, From: ${from}, To: ${to}, Query:`, JSON.stringify(query));
-
-    const PAGE_SIZE = 20;
-    const pageNum = Math.max(1, Number(page));
-    const skip = (pageNum - 1) * PAGE_SIZE;
-
-    const total = await PartnerService.countDocuments(query);
-    const servicesDb = await PartnerService.find(query)
-      .skip(skip)
-      .limit(PAGE_SIZE);
-
-    const services = servicesDb.map(s => {
-      // Parse Route
-      let depLoc = from || 'Điểm đi';
-      let arrLoc = to || 'Điểm đến';
-      if (s.route) {
-        const parts = s.route.split('-').map(p => p.trim());
-        if (parts.length >= 2) {
-          depLoc = parts[0];
-          arrLoc = parts[1];
-        }
-      }
-
-      return {
-        id: s._id,
-        operator: s.name,
-        logo: s.image,
-        type: s.type, // flight, train, bus
-        departure: {
-          time: '08:00', // Mock
-          station: depLoc,
-          airport: depLoc // for flight compatibility
-        },
-        arrival: {
-          time: '12:00', // Mock
-          station: arrLoc,
-          airport: arrLoc
-        },
-        duration: '4h 00m', // Mock
-        price: s.price,
-        class: 'Standard',
-        raw: s
-      };
-    });
-
-    return res.json({
-      success: true,
-      data: services,
-      total,
-      page: pageNum,
-      totalPages: Math.ceil(total / PAGE_SIZE)
-    });
-
-  } catch (err) {
-    console.error('Error in /api/transport:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 // POST /api/bookings
-// GET /api/users/profile
-app.get('/api/users/profile', async (req, res) => {
-  try {
-    let userId = null;
-    let token = null;
 
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-      token = req.headers.authorization.split(' ')[1];
-    } else if (req.headers.cookie) {
-      const cookies = parse(req.headers.cookie);
-      token = cookies['auth_token'];
-    }
 
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_change_me');
-        userId = decoded.userId;
-      } catch (e) { }
-    }
 
-    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
-    const { default: User } = await import('./models/User.js');
-    const { default: Booking } = await import('./models/Booking.js');
 
-    // Find User
-    const user = await User.findById(userId).select('-password');
-    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
-    // Find Bookings (Journeys)
-    const bookings = await Booking.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .populate('tour')
-      .populate('partnerService') // Enable population for hotels
-      .lean();
 
-    const journeys = bookings.map(b => {
-      // Determine Image - Prefer serviceInfo.image (Snapshot)
-      let img = b.serviceInfo?.image || null;
-      if (!img && b.type === 'tour' && b.tour?.mainImage) img = b.tour.mainImage;
-      else if (!img && b.type === 'hotel' && b.partnerService) {
-        img = b.partnerService.image || (b.partnerService.images && b.partnerService.images[0]);
-      }
 
-      // Determine Destination/Location - Prefer serviceInfo.destination (Snapshot)
-      let location = b.serviceInfo?.destination || 'Việt Nam';
-      if (!b.serviceInfo?.destination) {
-        if (b.type === 'tour' && b.tour?.destination?.name) location = b.tour.destination.name;
-        else if (b.type === 'hotel' && b.partnerService) {
-          location = b.partnerService.city || b.partnerService.location || b.partnerService.address;
-        }
-      }
-
-      return {
-        _id: b._id,
-        tourTitle: b.serviceInfo?.title || b.tour?.title || b.partnerService?.name || 'Chuyến đi',
-        bookingDate: b.bookingDate,
-        status: b.status,
-        totalPrice: b.totalPrice,
-        participants: b.participants,
-        mainImage: img,
-        destination: location,
-        type: b.type,
-        tour: b.tour, // Pass full object
-        partnerService: b.partnerService // Pass full object
-      };
-    });
-
-    // Mock Gamification/Badges (since schemas might be complex or missing, providing Safe Defaults)
-    const gamification = {
-      earnedBadgesCount: 0,
-      totalBadgesCount: 10,
-      completionPercentage: 0,
-      allBadges: [],
-      categorizedBadges: []
-    };
-
-    // Mock Stories
-    const stories = [];
-
-    // Construct Payload
-    const responsePayload = {
-      profile: {
-        name: user.name,
-        avatarInitials: user.name ? user.name.charAt(0).toUpperCase() : 'U',
-        memberSince: user.createdAt,
-        level: 'Thành viên'
-      },
-      gamification,
-      journeys,
-      stories
-    };
-
-    return res.json({ success: true, data: responsePayload });
-
-  } catch (err) {
-    console.error('Error fetching user profile:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/bookings (List user bookings)
-app.get('/api/bookings', async (req, res) => {
-  try {
-    let userId = null;
-    let token = null;
-
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-      token = req.headers.authorization.split(' ')[1];
-    } else if (req.headers.cookie) {
-      const cookies = parse(req.headers.cookie);
-      token = cookies['auth_token'];
-    }
-
-    if (token) {
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_change_me');
-        userId = decoded.userId;
-      } catch (e) { }
-    }
-
-    if (!userId) {
-      return res.status(401).json({ success: false, error: 'Unauthorized' });
-    }
-
-    const { default: Booking } = await import('./models/Booking.js');
-    // Populate simple fields if needed, but for list usually basic info is enough
-    const bookings = await Booking.find({ user: userId }).sort({ createdAt: -1 });
-
-    return res.json({ success: true, data: bookings });
-  } catch (err) {
-    console.error('Error fetching bookings:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/bookings/:id (Booking detail)
-// GET /api/bookings/:id (Booking detail)
-app.get('/api/bookings/:id', requireAuth, async (req, res) => {
-  console.log(`[GET /api/bookings/:id] Request received for ID: ${req.params.id}`);
-
-  try {
-    const userId = req.user.userId;
-    const { id } = req.params;
-
-    // Dynamic import to avoid circular deps or startup overhead
-    const { default: Booking } = await import('./models/Booking.js');
-
-    const booking = await Booking.findOne({ _id: id, user: userId })
-      .populate('tour')
-      .populate('partnerService'); // Ensure populated data for display
-
-    if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' });
-    }
-
-    return res.json({ success: true, data: booking });
-
-  } catch (err) {
-    console.error('Error fetching booking detail:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// PATCH /api/bookings/:id/cancel (Cancel booking)
-app.patch('/api/bookings/:id/cancel', requireAuth, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { id } = req.params;
-
-    const { default: Booking } = await import('./models/Booking.js');
-
-    const booking = await Booking.findOne({ _id: id, user: userId });
-
-    if (!booking) {
-      return res.status(404).json({ success: false, error: 'Booking not found' });
-    }
-
-    if (['cancelled', 'completed'].includes(booking.status)) {
-      return res.status(400).json({ success: false, error: 'Cannot cancel this booking' });
-    }
-
-    booking.status = 'cancelled';
-    await booking.save();
-
-    return res.json({ success: true, data: booking });
-
-  } catch (err) {
-    console.error('Error cancelling booking:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/bookings
-app.post('/api/bookings', async (req, res) => {
-  try {
-    const body = req.body || {};
-    // Polymorphic ID extraction
-    const hotelId = body.hotelId || body.hotel_id || body.hotel || null;
-    const tourId = body.tourId || body.tour_id || body.tour || null;
-
-    // Common fields
-    let userId = body.userId || null;
-    const checkin = body.checkin || body.checkInDate || body.check_in_date || body.bookingDate || null;
-    // For tours, checkout might be null or same day+duration
-    const checkout = body.checkout || body.checkOutDate || body.check_out_date || null;
-
-    // Guests
-    const guestsRaw = body.guests ?? body.adults ?? body.numGuests ?? body.participants ?? null;
-    const guests = guestsRaw != null ? Number(guestsRaw) : null;
-
-    // Robust Auth: Try to get userId from Token if not in body
-    if (!userId) {
-      try {
-        let token = null;
-        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-          token = req.headers.authorization.split(' ')[1];
-        } else if (req.headers.cookie) {
-          const cookies = parse(req.headers.cookie);
-          token = cookies['auth_token'];
-        }
-
-        if (token) {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret_change_me');
-          if (decoded && decoded.userId) {
-            userId = decoded.userId;
-            // Auto-fix body for consistency
-            body.userId = userId;
-          }
-        }
-      } catch (e) {
-        console.warn('[Booking] Token extraction failed:', e.message);
-      }
-    }
-
-    if (!userId) {
-      console.error('[Booking Error] No userId found in body or token');
-      return res.status(401).json({ success: false, error: 'Vui lòng đăng nhập để đặt dịch vụ' });
-    }
-
-    // Validation
-    if (!hotelId && !tourId && body.type !== 'flight') {
-      return res.status(400).json({ success: false, error: 'Missing service identifier (hotelId, tourId or type=flight)' });
-    }
-    if (!guests) return res.status(400).json({ success: false, error: 'Missing participants/guests count' });
-
-    // Lazy Import Models
-    const { default: Booking } = await import('./models/Booking.js');
-    const { default: User } = await import('./models/User.js');
-    const { default: Notification } = await import('./models/Notification.js');
-
-    let newBookingData = {
-      user: userId,
-      bookingDate: new Date(),
-      participants: guests,
-      participantsBreakdown: {
-        adults: guests,
-        children: 0
-      },
-      contactInfo: {
-        name: body.contactName || body.customerInfo?.name || '',
-        email: body.contactEmail || body.customerInfo?.email || '',
-        phone: body.contactPhone || body.customerInfo?.phone || ''
-      },
-      paymentMethod: body.paymentMethod || 'cash',
-      status: 'pending', // Default
-      totalPrice: Number(body.totalPrice || 0)
-    };
-
-    // ----- HOTEL LOGIC -----
-    if (hotelId) {
-      const hotel = await PartnerService.findById(hotelId);
-      if (!hotel) return res.status(404).json({ success: false, error: 'Hotel not found' });
-
-      if (!checkin) return res.status(400).json({ success: false, error: 'Missing checkin date for hotel' });
-      if (!checkout) return res.status(400).json({ success: false, error: 'Missing checkout date for hotel' });
-
-      const checkinDate = new Date(checkin);
-      const checkoutDate = new Date(checkout);
-      const nights = body.nights ?? Math.max(1, Math.ceil((checkoutDate - checkinDate) / (24 * 60 * 60 * 1000)));
-
-      newBookingData = {
-        ...newBookingData,
-        type: 'hotel',
-        partnerService: hotelId,
-        status: 'provisional', // Hotels often start provisional
-        serviceInfo: {
-          title: hotel.name,
-          image: hotel.image || (hotel.images && hotel.images[0]) || '',
-          destination: hotel.location || hotel.address || hotel.city || 'Việt Nam',
-          price: Number(body.unitPrice || hotel.price),
-          checkIn: checkinDate,
-          checkOut: checkoutDate,
-          nights,
-          roomType: body.bedType || body.roomType || 'Standard',
-          providerUrl: body.providerUrl || null
-        },
-        checkInDate: checkinDate
-      };
-    }
-    // ----- FLIGHT LOGIC -----
-    else if (body.type === 'flight') {
-      newBookingData = {
-        ...newBookingData,
-        type: 'flight',
-        checkInDate: new Date(body.bookingDate || Date.now()),
-        serviceInfo: {
-          title: body.airline ? `${body.airline} (${body.flightNumber})` : 'Vé máy bay',
-          destination: body.destination?.city || 'Việt Nam',
-          price: Number(body.unitPrice || 0),
-          image: body.airline === 'Vietnam Airlines' ? 'https://picsum.photos/seed/vna/120/120' :
-            body.airline === 'VietJet Air' ? 'https://picsum.photos/seed/vja/120/120' :
-              'https://picsum.photos/seed/flight-default/120/120',
-          // Store extra flight details
-          location: `${body.origin?.city} (${body.origin?.code}) - ${body.destination?.city} (${body.destination?.code})`,
-          duration: body.duration,
-          bookingDate: body.date // legacy
-        },
-        // Store flight specific data in a flexible way if schema allows, or reuse existing fields
-        participants: guests,
-        totalPrice: Number(body.totalPrice || 0)
+// Store flight specific data in a flexible way if schema allows, or reuse existing fields
+participants: guests,
+  totalPrice: Number(body.totalPrice || 0)
       };
     }
     // ----- TOUR LOGIC -----
     else if (tourId) {
-      // Since Tour model isn't imported globally, try to dynamic import or rely on Mongoose
-      // Assuming 'Tour' model is registered. 
-      // If not, we might need: const { default: Tour } = await import('./models/Tour.js');
-      // But assuming generic handling for now or simple ID check if we don't strictly validate Tour existence (though we should)
+  // Since Tour model isn't imported globally, try to dynamic import or rely on Mongoose
+  // Assuming 'Tour' model is registered. 
+  // If not, we might need: const { default: Tour } = await import('./models/Tour.js');
+  // But assuming generic handling for now or simple ID check if we don't strictly validate Tour existence (though we should)
 
-      // For now, trust the ID but try to fetch title from body if model not avail
-      let tourTitle = body.tourName || body.title || 'Tour tham quan';
-      let tourImage = body.tourImage || null;
+  // For now, trust the ID but try to fetch title from body if model not avail
+  let tourTitle = body.tourName || body.title || 'Tour tham quan';
+  let tourImage = body.tourImage || null;
 
-      let tourDestination = 'Việt Nam';
+  let tourDestination = 'Việt Nam';
 
-      try {
-        const { default: Tour } = await import('./models/Tour.js');
-        const tour = await Tour.findById(tourId);
-        if (tour) {
-          tourTitle = tour.title;
-          tourImage = tour.mainImage;
-          tourDestination = tour.destination?.name || tour.location || 'Việt Nam';
-        }
-      } catch (e) { console.warn('Tour model verify failed', e); }
-
-      newBookingData = {
-        ...newBookingData,
-        type: 'tour',
-        tour: tourId,
-        checkInDate: new Date(checkin || Date.now()), // Tour date
-        serviceInfo: {
-          title: tourTitle,
-          image: tourImage,
-          destination: tourDestination,
-          price: Number(body.unitPrice || 0),
-          duration: body.duration || '1 ngày'
-        }
-      };
+  try {
+    const { default: Tour } = await import('./models/Tour.js');
+    const tour = await Tour.findById(tourId);
+    if (tour) {
+      tourTitle = tour.title;
+      tourImage = tour.mainImage;
+      tourDestination = tour.destination?.name || tour.location || 'Việt Nam';
     }
+  } catch (e) { console.warn('Tour model verify failed', e); }
 
-    const newBooking = new Booking(newBookingData);
-    await newBooking.save();
-
-    // Create Notification
-    try {
-      await Notification.create({
-        recipient: userId,
-        title: 'Đặt dịch vụ thành công',
-        message: `Bạn đã đặt thành công dịch vụ: ${newBooking.serviceInfo?.title || 'Chuyến đi'}.`,
-        type: 'booking',
-        link: `/profile/bookings/${newBooking._id}`,
-        data: { bookingId: newBooking._id },
-        isRead: false
-      });
-    } catch (notifErr) {
-      console.error('Notification create failed', notifErr);
+  newBookingData = {
+    ...newBookingData,
+    type: 'tour',
+    tour: tourId,
+    checkInDate: new Date(checkin || Date.now()), // Tour date
+    serviceInfo: {
+      title: tourTitle,
+      image: tourImage,
+      destination: tourDestination,
+      price: Number(body.unitPrice || 0),
+      duration: body.duration || '1 ngày'
     }
+  };
+}
 
-    // If Hotel, generate detailed response with provider URL
-    if (hotelId) {
-      const normalizedProvider = normalizeProviderUrlServer(newBookingData.serviceInfo.providerUrl, newBookingData.serviceInfo.title);
-      return res.json({ success: true, id: newBooking._id, provider_url: normalizedProvider, booking: newBooking });
-    }
+const newBooking = new Booking(newBookingData);
+await newBooking.save();
 
-    // Default Success
-    return res.json({ success: true, id: newBooking._id, booking: newBooking });
+// Create Notification
+try {
+  await Notification.create({
+    recipient: userId,
+    title: 'Đặt dịch vụ thành công',
+    message: `Bạn đã đặt thành công dịch vụ: ${newBooking.serviceInfo?.title || 'Chuyến đi'}.`,
+    type: 'booking',
+    link: `/profile/bookings/${newBooking._id}`,
+    data: { bookingId: newBooking._id },
+    isRead: false
+  });
+} catch (notifErr) {
+  console.error('Notification create failed', notifErr);
+}
+
+// If Hotel, generate detailed response with provider URL
+if (hotelId) {
+  const normalizedProvider = normalizeProviderUrlServer(newBookingData.serviceInfo.providerUrl, newBookingData.serviceInfo.title);
+  return res.json({ success: true, id: newBooking._id, provider_url: normalizedProvider, booking: newBooking });
+}
+
+// Default Success
+return res.json({ success: true, id: newBooking._id, booking: newBooking });
 
   } catch (err) {
-    console.error('Error in POST /api/bookings:', err);
-    return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
-  }
+  console.error('Error in POST /api/bookings:', err);
+  return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+}
 });
 
 // ---------- Start server ----------

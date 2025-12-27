@@ -16,6 +16,8 @@ import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import communityRouter from './routes/community.js';
 import chatRouter from './routes/chat.js';
+import homeRouter from './routes/home.js';
+import destinationRouter from './routes/destinations.js';
 import PartnerService from './models/PartnerService.js';
 import { requireAuth } from './middleware/auth.js';
 
@@ -61,6 +63,8 @@ app.use('/api/community', communityRouter);
 // Ideally we group them. Let's redirect or just mount specifically.
 app.use('/api', communityRouter); // This will match /api/stories and /api/hub (if community.js has /hub)
 app.use('/api/chat', chatRouter);
+app.use('/api/home', homeRouter);
+app.use('/api/destinations', destinationRouter);
 
 // Serve static frontend files (must be AFTER API routes)
 const distPath = path.join(process.cwd(), 'dist');

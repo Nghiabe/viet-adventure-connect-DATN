@@ -67,7 +67,9 @@ const distPath = path.join(process.cwd(), 'dist');
 app.use(express.static(distPath));
 
 // Handle SPA routing - return index.html for all non-API routes
-app.get('*', (req, res) => {
+// Handle SPA routing - return index.html for all non-API routes
+// Note: Express 5 requires named parameters for wildcards or regex.
+app.get(/.*/, (req, res) => {
   // If request route is an API call that wasn't handled, don't serve HTML
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API endpoint not found' });

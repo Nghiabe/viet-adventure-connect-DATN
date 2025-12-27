@@ -62,6 +62,27 @@ app.use('/api/community', communityRouter);
 app.use('/api', communityRouter); // This will match /api/stories and /api/hub (if community.js has /hub)
 app.use('/api/chat', chatRouter);
 
+// Serve static frontend files (must be AFTER API routes)
+const distPath = path.join(process.cwd(), 'dist');
+app.use(express.static(distPath));
+
+// Handle SPA routing - return index.html for all non-API routes
+app.get('*', (req, res) => {
+  // If request route is an API call that wasn't handled, don't serve HTML
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+
+  // Check if index.html exists before trying to send it
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    // If dist/index.html doesn't exist (e.g. in dev mode without build), give a clear message
+    res.send('API Server is running. Frontend build not found in /dist. (Did you run npm run build?)');
+  }
+});
+
 // ---------- Database Connection ----------
 if (process.env.MONGODB_URI) {
   mongoose.connect(process.env.MONGODB_URI)

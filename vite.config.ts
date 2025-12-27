@@ -3061,7 +3061,7 @@ function communityHubApiPlugin() {
 }
 
 // --- MAIN VITE CONFIGURATION (The single, authoritative export) ---
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   // Use Vite's native `loadEnv` to correctly read .env files for the current mode.
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -3084,23 +3084,27 @@ export default defineConfig(({ mode }) => {
     console.warn("⚠️ WARNING: MONGODB_URI is not defined in your .env.local file. The seeding API will fail.");
   }
 
+  // Only load these plugins during development (serve)
+  // They are not needed for the build and are causing the EISDIR error
+  const isDev = command === 'serve';
+
   return {
     plugins: [
       react(),
       // Conditionally enable the seeding API only in the 'development' environment.
-      mode === 'development' ? seedApiPlugin() : null,
-      mode === 'development' ? homeApiPlugin() : null,
+      isDev && mode === 'development' ? seedApiPlugin() : null,
+      isDev && mode === 'development' ? homeApiPlugin() : null,
       // mode === 'development' ? authApiPlugin() : null, // DISABLED: Use backend auth instead
-      mode === 'development' ? publicToursApiPlugin() : null,
-      mode === 'development' ? userJourneysApiPlugin() : null,
-      mode === 'development' ? communityHubApiPlugin() : null,
-      mode === 'development' ? profileApiPlugin() : null,
+      isDev && mode === 'development' ? publicToursApiPlugin() : null,
+      isDev && mode === 'development' ? userJourneysApiPlugin() : null,
+      isDev && mode === 'development' ? communityHubApiPlugin() : null,
+      isDev && mode === 'development' ? profileApiPlugin() : null,
       // Pass env explicitly to the chat API plugin (DI pattern)
-      mode === 'development' ? chatApiPlugin(env) : null,
+      isDev && mode === 'development' ? chatApiPlugin(env) : null,
       // NEW: Planner API plugin registered for dev mode
-      mode === 'development' ? plannerApiPlugin(env) : null,
-      mode === 'development' ? shareApiPlugin() : null,
-      mode === 'development' ? notificationApiPlugin() : null,
+      isDev && mode === 'development' ? plannerApiPlugin(env) : null,
+      isDev && mode === 'development' ? shareApiPlugin() : null,
+      isDev && mode === 'development' ? notificationApiPlugin() : null,
 
     ].filter(Boolean) as any,
     server: {

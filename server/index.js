@@ -18,6 +18,7 @@ import communityRouter from './routes/community.js';
 import chatRouter from './routes/chat.js';
 import homeRouter from './routes/home.js';
 import destinationRouter from './routes/destinations.js';
+import tourRouter from './routes/tours.js';
 import PartnerService from './models/PartnerService.js';
 import { requireAuth } from './middleware/auth.js';
 
@@ -65,6 +66,7 @@ app.use('/api', communityRouter); // This will match /api/stories and /api/hub (
 app.use('/api/chat', chatRouter);
 app.use('/api/home', homeRouter);
 app.use('/api/destinations', destinationRouter);
+app.use('/api/tours', tourRouter);
 
 // Serve static frontend files (must be AFTER API routes)
 const distPath = path.join(process.cwd(), 'dist');

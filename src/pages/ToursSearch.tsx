@@ -265,19 +265,37 @@ const ToursSearch = () => {
 
   // Fetch tours from AI service
   const { data, isLoading, isError, refetch } = useQuery<ToursResponse>({
-    queryKey: ['tours-search', locationFilter, searchQuery, priceRange],
+    queryKey: ['tours-search', locationFilter, searchQuery, priceRange, selectedCategories],
     queryFn: async () => {
+      // Map frontend params to backend expected params
       const params = new URLSearchParams();
-      if (locationFilter) params.set('location', locationFilter);
+      if (locationFilter) params.set('destination', locationFilter); // Backend expects 'destination'
       if (searchQuery || urlQuery) params.set('query', searchQuery || urlQuery);
+
+      // Note: Backend currently doesn't filter by category, so we might need client-side filtering
+      // or update backend. For now, we pass it in case backend is updated.
       if (selectedCategories.length === 1) params.set('category', selectedCategories[0]);
-      if (priceRange[0] > 0) params.set('min_price', priceRange[0].toString());
-      if (priceRange[1] < 5000000) params.set('max_price', priceRange[1].toString());
+
+      if (priceRange[0] > 0) params.set('minPrice', priceRange[0].toString()); // min_price -> minPrice
+      if (priceRange[1] < 5000000) params.set('maxPrice', priceRange[1].toString()); // max_price -> maxPrice
       params.set('limit', '20');
 
-      const response = await fetch(`/api/ai-tours/search?${params.toString()}`);
+      // Use the correct backend endpoint /api/tours (proxied via apiClient)
+      // Note: apiClient auto-adds /api prefix if configured, but here we use relative path logic or direct fetch
+      // Let's use fetch for minimal intrusion but correct the URL.
+      // Better yet, reuse standard fetch to /api/tours
+      const response = await fetch(`/api/tours?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch');
-      return response.json();
+
+      const result = await response.json();
+
+      // Adapt Backend Response (data: Tour[]) to Frontend Interface (tours: Tour[])
+      return {
+        success: result.success,
+        tours: result.data || [], // Backend returns 'data', frontend expects 'tours'
+        count: result.pagination?.total || 0,
+        total: result.pagination?.total
+      };
     },
     staleTime: 30000,
   });

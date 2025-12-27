@@ -85,7 +85,7 @@ const getDestinationData = (slug: string): DestinationData | null => {
           caption: "Vịnh Hạ Long với hàng nghìn đảo đá vôi kỳ vĩ"
         },
         {
-          id: "2", 
+          id: "2",
           url: "/src/assets/exp-kayak-halong.jpg",
           alt: "Chèo kayak tại Vịnh Hạ Long",
           caption: "Trải nghiệm chèo kayak khám phá hang động"
@@ -169,7 +169,7 @@ const getDestinationData = (slug: string): DestinationData | null => {
           sustainable: true
         },
         {
-          id: "hl-002", 
+          id: "hl-002",
           title: "Khám phá Hạ Long bằng thủy phi cơ",
           image: "/src/assets/exp-kayak-halong.jpg",
           location: "Vịnh Hạ Long",
@@ -188,7 +188,7 @@ const getDestinationData = (slug: string): DestinationData | null => {
         {
           id: "hl-003",
           title: "Tour Hạ Long - Cát Bà 3N2Đ",
-          image: "/src/assets/hero-vietnam.jpg", 
+          image: "/src/assets/hero-vietnam.jpg",
           location: "Hạ Long - Cát Bà",
           duration: "3 ngày 2 đêm",
           rating: 4.7,
@@ -221,7 +221,7 @@ const getDestinationData = (slug: string): DestinationData | null => {
           tags: ["Du thuyền", "Hạ Long", "Trải nghiệm"]
         },
         {
-          id: "story-2", 
+          id: "story-2",
           title: "Bí quyết chụp ảnh đẹp tại Vịnh Hạ Long",
           excerpt: "Những góc chụp và thời điểm vàng để có được những bức ảnh tuyệt đẹp tại Vịnh Hạ Long...",
           image: "/src/assets/exp-kayak-halong.jpg",
@@ -230,7 +230,7 @@ const getDestinationData = (slug: string): DestinationData | null => {
             avatar: "/src/assets/dest-sapa.jpg",
             initials: "PT"
           },
-          readTime: "5 phút đọc", 
+          readTime: "5 phút đọc",
           publishedAt: "2024-01-10",
           tags: ["Photography", "Tips", "Hạ Long"]
         },
@@ -241,7 +241,7 @@ const getDestinationData = (slug: string): DestinationData | null => {
           image: "/src/assets/hero-vietnam.jpg",
           author: {
             name: "Food Blogger Linh",
-            avatar: "/src/assets/dest-phuquoc.jpg", 
+            avatar: "/src/assets/dest-phuquoc.jpg",
             initials: "FL",
             verified: true
           },
@@ -266,10 +266,12 @@ const DestinationDetail = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  console.log('DestinationDetail Debug:', { slug, isLoading, isError, data });
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       {/* Main Content */}
       <main className="pt-16 md:pt-20">
         {(() => {
@@ -337,7 +339,7 @@ const DestinationDetail = () => {
                 <div className="container mx-auto px-4">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="lg:col-span-2 space-y-6">
-                      <TabbedContent 
+                      <TabbedContent
                         overview={destination.description}
                         history={destination.history}
                         culture={destination.culture}
@@ -362,7 +364,7 @@ const DestinationDetail = () => {
               <section className="mb-12">
                 <div className="container mx-auto px-4">
                   <StoriesGrid stories={stories} destinationName={destination.name} />
-                  
+
                 </div>
               </section>
             </>

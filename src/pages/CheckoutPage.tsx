@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { Header } from '@/components/home/Header';
 import { Footer } from '@/components/home/Footer';
+import { CheckCircle, QrCode, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ const schema = z.object({
   email: z.string().email('Email không hợp lệ'),
   phone: z.string().min(8, 'Số điện thoại không hợp lệ'),
   note: z.string().optional(),
-  paymentMethod: z.enum(['cod', 'bank_transfer', 'credit_card'], { required_error: 'Vui lòng chọn phương thức thanh toán' })
+  paymentMethod: z.enum(['cod', 'bank_transfer'], { required_error: 'Vui lòng chọn phương thức thanh toán' })
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -36,10 +37,23 @@ export default function CheckoutPage() {
     if (!bookingDetails) navigate('/');
   }, [bookingDetails, navigate]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { paymentMethod: 'bank_transfer' }
   });
+  const selectedPaymentMethod = watch('paymentMethod');
+  const [isPaid, setIsPaid] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleSimulatePayment = () => {
+    setIsChecking(true);
+    // Simulate API call delay
+    setTimeout(() => {
+      setIsPaid(true);
+      setIsChecking(false);
+      toast.success('Đã nhận được thanh toán!');
+    }, 1500);
+  };
 
   const { mutate: finalizeBooking, isPending } = useMutation({
     mutationFn: (finalBookingData: any) => apiClient.post<any>('/bookings', finalBookingData),
@@ -174,21 +188,92 @@ export default function CheckoutPage() {
                     <Label htmlFor="cod">Thanh toán tại quầy</Label>
                     <input id="pm-cod" type="radio" className="hidden" value="cod" {...register('paymentMethod')} />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="credit_card" id="credit_card" />
-                    <Label htmlFor="credit_card">Thẻ tín dụng</Label>
-                    <input id="pm-credit_card" type="radio" className="hidden" value="credit_card" {...register('paymentMethod')} />
-                  </div>
+
                 </RadioGroup>
                 {errors.paymentMethod && <p className="text-sm text-red-600 mt-1">{errors.paymentMethod.message as any}</p>}
               </div>
 
-              <Button type="submit" className="w-full md:w-auto" disabled={isPending}>
-                {isPending ? 'Đang xử lý...' : 'Thanh toán ngay'}
+              {selectedPaymentMethod === 'bank_transfer' && (
+                <div className="mt-4 p-4 border rounded-lg bg-slate-50 space-y-4 animate-in fade-in zoom-in duration-300">
+                  <div className="flex flex-col md:flex-row gap-6 items-center">
+                    <div className="bg-white p-2 rounded-lg shadow-sm border shrink-0">
+                      {/* VietQR Dynamic URL */}
+                      <img
+                        src={`https://img.vietqr.io/image/MB-0000123456789-compact.jpg?amount=${total}&addInfo=VCONNECT ${user?._id?.slice(-6) || 'BOOKING'}&accountName=VIET ADVENTURE CONNECT`}
+                        alt="QR Transfer"
+                        className="w-48 h-48 object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-2 text-sm w-full">
+                      <h3 className="font-semibold text-base flex items-center gap-2">
+                        <QrCode className="w-4 h-4" />
+                        Thông tin chuyển khoản
+                      </h3>
+                      <div className="grid grid-cols-[100px_1fr] gap-2">
+                        <span className="text-muted-foreground">Ngân hàng:</span>
+                        <span className="font-medium">MB Bank</span>
+
+                        <span className="text-muted-foreground">Số tài khoản:</span>
+                        <span className="font-medium">0000 1234 56789</span>
+
+                        <span className="text-muted-foreground">Chủ tài khoản:</span>
+                        <span className="font-medium uppercase">Viet Adventure Connect</span>
+
+                        <span className="text-muted-foreground">Số tiền:</span>
+                        <span className="font-medium text-emerald-600 text-base">
+                          {new Intl.NumberFormat('vi-VN').format(total)}₫
+                        </span>
+
+                        <span className="text-muted-foreground">Nội dung:</span>
+                        <span className="font-medium">VCONNECT {user?._id?.slice(-6) || 'BOOKING'}</span>
+                      </div>
+
+                      <div className="pt-2 border-t mt-2">
+                        {!isPaid ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-2 rounded text-xs">
+                              <RefreshCcw className={`w-3 h-3 ${isChecking ? 'animate-spin' : ''}`} />
+                              Đang chờ thanh toán... Vui lòng quét mã và chuyển khoản.
+                            </div>
+
+                            {/* Simulation Button for Local Dev */}
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="w-full text-xs border-dashed border-2"
+                              onClick={handleSimulatePayment}
+                              disabled={isChecking}
+                            >
+                              {isChecking ? 'Đang kiểm tra...' : '[Mô phỏng] Đã chuyển khoản thành công'}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 p-2 rounded font-medium">
+                            <CheckCircle className="w-4 h-4" />
+                            Đã xác nhận thanh toán thành công
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+
+              <Button
+                type="submit"
+                className={`w-full md:w-auto ${isPaid && selectedPaymentMethod === 'bank_transfer' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                disabled={isPending || (selectedPaymentMethod === 'bank_transfer' && !isPaid)}
+              >
+                {isPending ? 'Đang xử lý...' :
+                  (selectedPaymentMethod === 'bank_transfer' && isPaid) ? 'Hoàn tất đặt vé' :
+                    selectedPaymentMethod === 'cod' ? 'Hoàn tất đặt chỗ' :
+                      'Thanh toán ngay'}
               </Button>
             </form>
           </Card>
-        </div>
+        </div >
 
         <aside className="space-y-6">
           <Card className="p-6 space-y-3">
@@ -273,7 +358,7 @@ export default function CheckoutPage() {
             </div>
           </Card>
         </aside>
-      </main>
+      </main >
       <Footer />
     </div >
   );

@@ -55,7 +55,8 @@ function StatusTag({ status }: { status: 'published' | 'draft' | 'archived' }) {
     archived: { bg: 'bg-gray-500/20', text: 'text-gray-300', label: 'Đã lưu trữ' }
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status] || { bg: 'bg-secondary', text: 'text-muted-foreground', label: 'Không xác định' };
+
   return (
     <span className={`px-2 py-1 rounded text-xs ${config.bg} ${config.text}`}>
       {config.label}

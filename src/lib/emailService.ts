@@ -29,9 +29,9 @@ const createTransporter = () => {
 export const sendPasswordResetEmail = async (email: string, resetToken: string) => {
   try {
     const transporter = createTransporter();
-    
+
     const resetURL = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
-    
+
     const mailOptions = {
       from: process.env.EMAIL_FROM || 'noreply@vietravel.com',
       to: email,
@@ -56,14 +56,14 @@ export const sendPasswordResetEmail = async (email: string, resetToken: string) 
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
+
     // In development, log the email details
     if (process.env.NODE_ENV !== 'production') {
       console.log('📧 Email sent (development mode):');
       console.log('Preview URL:', nodemailer.getTestMessageUrl(info));
       console.log('Reset URL:', resetURL);
     }
-    
+
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Email sending failed:', error);

@@ -31,7 +31,7 @@ interface Tour {
   reviewCount: number;
   bookingCount: number;
   totalRevenue: number;
-  status: 'published' | 'draft' | 'archived';
+  status: 'published' | 'draft' | 'archived' | 'pending' | 'rejected';
 }
 
 interface PaginationInfo {
@@ -48,11 +48,13 @@ interface ToursResponse {
   };
 }
 
-function StatusTag({ status }: { status: 'published' | 'draft' | 'archived' }) {
+function StatusTag({ status }: { status: 'published' | 'draft' | 'archived' | 'pending' | 'rejected' }) {
   const statusConfig = {
     published: { bg: 'bg-green-500/20', text: 'text-green-300', label: 'Đã xuất bản' },
     draft: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', label: 'Bản nháp' },
-    archived: { bg: 'bg-gray-500/20', text: 'text-gray-300', label: 'Đã lưu trữ' }
+    archived: { bg: 'bg-gray-500/20', text: 'text-gray-300', label: 'Đã lưu trữ' },
+    pending: { bg: 'bg-blue-500/20', text: 'text-blue-300', label: 'Chờ duyệt' },
+    rejected: { bg: 'bg-red-500/20', text: 'text-red-300', label: 'Từ chối' }
   };
 
   const config = statusConfig[status] || { bg: 'bg-secondary', text: 'text-muted-foreground', label: 'Không xác định' };
@@ -199,6 +201,23 @@ export default function ToursPage() {
     }
   });
 
+  // Update status mutation (Approve/Reject)
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const response = await apiClient.put(`/admin/tours/${id}/status`, { status });
+      if (!response.success) {
+        throw new Error(response.error || 'Update failed');
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminTours'] });
+    },
+    onError: (error) => {
+      alert(`Lỗi cập nhật trạng thái: ${error.message}`);
+    }
+  });
+
   // Delete tour mutation using centralized apiClient
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -275,8 +294,10 @@ export default function ToursPage() {
             }}
           >
             <option value="">Tất cả trạng thái</option>
+            <option value="pending">Chờ duyệt</option>
             <option value="published">Đã xuất bản</option>
             <option value="draft">Bản nháp</option>
+            <option value="rejected">Từ chối</option>
             <option value="archived">Đã lưu trữ</option>
           </select>
 
@@ -394,6 +415,34 @@ export default function ToursPage() {
                               Xem trên site
                             </a>
                           </DropdownMenuItem>
+
+                          {tour.status === 'pending' && (
+                            <>
+                              <DropdownMenuItem
+                                className="text-green-500 font-medium cursor-pointer"
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  if (window.confirm('Phê duyệt tour này?')) {
+                                    updateStatusMutation.mutate({ id: tour._id, status: 'published' });
+                                  }
+                                }}
+                              >
+                                Phê duyệt
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-red-500 cursor-pointer"
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  if (window.confirm('Từ chối tour này?')) {
+                                    updateStatusMutation.mutate({ id: tour._id, status: 'rejected' });
+                                  }
+                                }}
+                              >
+                                Từ chối
+                              </DropdownMenuItem>
+                            </>
+                          )}
+
                           <DropdownMenuItem>Lưu trữ</DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-500"

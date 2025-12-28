@@ -19,7 +19,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <SidebarHeader className="px-3 py-2">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            <Link to="/" className="font-semibold">Vietravel</Link>
+            <Link to="/" className="font-semibold">V-Connect</Link>
           </div>
           <div className="text-xs text-muted-foreground mt-1">{(user?.role === 'admin' || user?.role === 'staff') ? t('admin_sidebar.admin_portal') : t('admin_sidebar.partner_portal', 'Partner Portal')}</div>
         </SidebarHeader>

@@ -63,7 +63,7 @@ const testimonials = [
     avatar: "MA"
   },
   {
-    name: "David Johnson", 
+    name: "David Johnson",
     location: "USA",
     comment: "The SOS feature gave me peace of mind while traveling solo in Vietnam. Highly recommended!",
     rating: 5,
@@ -71,7 +71,7 @@ const testimonials = [
   },
   {
     name: "Trần Thị Lan",
-    location: "TP. Hồ Chí Minh", 
+    location: "TP. Hồ Chí Minh",
     comment: "Những gợi ý ẩm thực từ app rất chính xác. Tôi đã tìm được nhiều quán ngon mà trước đây không biết.",
     rating: 5,
     avatar: "TL"
@@ -81,7 +81,7 @@ const testimonials = [
 // Feature Section Component
 const FeatureSection = ({ feature, index }: { feature: typeof features[0]; index: number }) => {
   const isEven = index % 2 === 0;
-  
+
   return (
     <section className={`py-16 md:py-20 ${isEven ? 'bg-background' : 'bg-secondary'}`}>
       <div className="container mx-auto px-4">
@@ -94,12 +94,12 @@ const FeatureSection = ({ feature, index }: { feature: typeof features[0]; index
               </div>
               <Badge variant="secondary">Tính năng độc quyền</Badge>
             </div>
-            
+
             <h2 className="text-3xl md:text-4xl font-bold mb-6">{feature.title}</h2>
             <p className="text-muted-foreground text-lg mb-6 leading-relaxed">
               {feature.description}
             </p>
-            
+
             <div className="space-y-3 mb-8">
               {feature.highlights.map((highlight, idx) => (
                 <div key={idx} className="flex items-center gap-3">
@@ -109,12 +109,12 @@ const FeatureSection = ({ feature, index }: { feature: typeof features[0]; index
               ))}
             </div>
           </div>
-          
+
           {/* Image/Video */}
           <div className={!isEven ? 'lg:col-start-1 lg:row-start-1' : ''}>
             <div className="relative">
-              <img 
-                src={feature.image} 
+              <img
+                src={feature.image}
                 alt={feature.title}
                 className="w-full max-w-md mx-auto rounded-2xl shadow-2xl"
               />
@@ -148,13 +148,13 @@ const TestimonialCard = ({ testimonial }: { testimonial: typeof testimonials[0] 
         </div>
       </div>
     </div>
-    
+
     <div className="flex items-center gap-1 mb-3">
       {[...Array(testimonial.rating)].map((_, i) => (
         <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
       ))}
     </div>
-    
+
     <p className="text-muted-foreground italic">"{testimonial.comment}"</p>
   </div>
 );
@@ -163,7 +163,7 @@ const MobileAppLanding = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="pt-20">
         {/* Hero Section */}
         <section className="py-16 md:py-20 bg-gradient-to-br from-primary/5 to-accent/5">
@@ -171,14 +171,14 @@ const MobileAppLanding = () => {
             <Badge variant="secondary" className="mb-4">
               Ứng dụng di động
             </Badge>
-            
+
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               Trợ lý Du lịch của bạn,<br />
               <span className="text-primary">ngay trong túi quần</span>
             </h1>
-            
+
             <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-              Khám phá Việt Nam với công nghệ AR tiên tiến, tính năng SOS thông minh và gợi ý cá nhân hóa. 
+              Khám phá Việt Nam với công nghệ AR tiên tiến, tính năng SOS thông minh và gợi ý cá nhân hóa.
               Tải ngay để có trải nghiệm du lịch an toàn và thú vị nhất.
             </p>
 
@@ -206,7 +206,7 @@ const MobileAppLanding = () => {
                   </div>
                 </div>
               </Button>
-              
+
               <Button size="lg" className="bg-black text-white hover:bg-black/90">
                 <div className="flex items-center gap-3">
                   <div className="text-2xl">🤖</div>
@@ -220,8 +220,8 @@ const MobileAppLanding = () => {
 
             {/* Phone Mockup */}
             <div className="relative max-w-sm mx-auto">
-              <img 
-                src="/src/assets/ai-phone-mock.jpg" 
+              <img
+                src="/src/assets/ai-phone-mock.jpg"
                 alt="VietTravel Mobile App"
                 className="w-full rounded-3xl shadow-2xl"
               />
@@ -245,7 +245,7 @@ const MobileAppLanding = () => {
                 Hàng nghìn du khách đã tin tưởng VietTravel trong hành trình khám phá Việt Nam
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {testimonials.map((testimonial) => (
                 <TestimonialCard key={testimonial.name} testimonial={testimonial} />
@@ -263,7 +263,7 @@ const MobileAppLanding = () => {
             <p className="text-xl mb-8 text-primary-foreground/90">
               Tải ứng dụng ngay hôm nay và bắt đầu hành trình của bạn
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" variant="secondary">
                 <div className="flex items-center gap-3">
@@ -274,7 +274,7 @@ const MobileAppLanding = () => {
                   </div>
                 </div>
               </Button>
-              
+
               <Button size="lg" variant="secondary">
                 <div className="flex items-center gap-3">
                   <div className="text-2xl">🤖</div>
@@ -288,7 +288,7 @@ const MobileAppLanding = () => {
           </div>
         </section>
       </main>
-      
+
       <Footer />
     </div>
   );

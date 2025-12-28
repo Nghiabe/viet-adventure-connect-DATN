@@ -30,7 +30,7 @@ const TourSchema = new mongoose.Schema({
     }],
     destination: { type: mongoose.Schema.Types.ObjectId, ref: 'Destination' }, // legacy
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    status: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft' }
+    status: { type: String, enum: ['draft', 'pending', 'published', 'rejected', 'archived'], default: 'draft' }
 }, { timestamps: true });
 
 const Tour = mongoose.models.Tour || mongoose.model('Tour', TourSchema);

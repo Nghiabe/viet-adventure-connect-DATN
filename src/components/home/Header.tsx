@@ -43,7 +43,7 @@ export const Header = () => {
       >
         <nav className="container mx-auto flex items-center justify-between h-16 md:h-20 px-4" aria-label="Primary">
           <Link to="/" className="font-extrabold text-lg md:text-xl tracking-tight">
-            VietTravel
+            V-Connect
           </Link>
 
           <div className="hidden lg:flex items-center gap-8">

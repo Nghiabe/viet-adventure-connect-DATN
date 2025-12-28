@@ -7,7 +7,7 @@ export const Footer = () => {
     <footer className="bg-primary text-primary-foreground" aria-label="Chân trang">
       <div className="container mx-auto px-4 py-12 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
-          <div className="text-xl font-extrabold mb-3">VietTravel</div>
+          <div className="text-xl font-extrabold mb-3">V-Connect</div>
           <div className="flex items-center gap-3">
             <a href="#" aria-label="Facebook" className="hover:opacity-80"><Facebook /></a>
             <a href="#" aria-label="Instagram" className="hover:opacity-80"><Instagram /></a>
@@ -42,7 +42,7 @@ export const Footer = () => {
       </div>
       <div className="border-t border-primary-foreground/20">
         <div className="container mx-auto px-4 py-4 text-sm text-primary-foreground/80 flex items-center justify-between">
-          <span>© {new Date().getFullYear()} VietTravel. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} V-Connect. All rights reserved.</span>
           <a href="#" className="hover:underline">Sơ đồ trang</a>
         </div>
       </div>

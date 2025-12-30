@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 from agents.researcher.graph import researcher_agent
 from agents.hotel_finder.graph import hotel_agent
 from agents.planner.graph import planner_agent
+from agents.alternatives.graph import alternatives_agent
 
 router = APIRouter()
 
@@ -35,6 +36,13 @@ class PlanRequest(BaseModel):
     travel_style: Optional[str] = "mid-range"
     interests: Optional[List[str]] = []
     num_travelers: Optional[int] = 2
+    # Feedback fields
+    feedback: Optional[str] = ""
+    current_itinerary: Optional[Dict[str, Any]] = None
+
+class AlternativesRequest(BaseModel):
+    slot_context: Dict[str, Any]
+    interests: Optional[List[str]] = []
 
 # --- Endpoints ---
 
@@ -54,6 +62,16 @@ async def run_hotel(payload: HotelRequest):
     try:
         inputs = payload.model_dump()
         result = await hotel_agent.ainvoke(inputs)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/alternatives")
+async def run_alternatives(payload: AlternativesRequest):
+    """Run Alternatives Agent."""
+    try:
+        inputs = payload.model_dump()
+        result = await alternatives_agent.ainvoke(inputs)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

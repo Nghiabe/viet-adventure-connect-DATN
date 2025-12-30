@@ -64,18 +64,16 @@ def itinerary_generator_prompt(
     style: str,
     interests: List[str],
     hotel_name: str = "Khách sạn đã chọn",
-    hotel_address: str = ""
+    hotel_address: str = "",
+    feedback: str = "",
+    current_itinerary: Dict[str, Any] = None
 ) -> str:
     """
     Generate SUPER GUIDE prompt for comprehensive itinerary.
-    
-    This prompt generates a detailed day-by-day itinerary with:
-    - Full day slots: breakfast, morning, transport, lunch, rest, afternoon, transport, dinner, evening
-    - Daily briefing with weather, dress code, must-bring items  
-    - Transport estimation between locations
-    - Detailed info for each location/dish (to be enriched later)
-    - Image placeholders (to be filled by search)
+    If feedback is provided, acts as a revision instruction.
     """
+    
+    # ... existing weather code ...
     
     # Parse month for weather mock
     month = 12  # default
@@ -92,6 +90,21 @@ def itinerary_generator_prompt(
     
     interests_str = ', '.join(interests) if interests else 'Đa dạng'
     
+    # NEW: Feedback handling
+    revision_context = ""
+    if feedback and current_itinerary:
+        revision_context = f"""
+# ⚠️ REVISION REQUEST
+User wants to modify their existing itinerary based on this feedback:
+"{feedback}"
+
+## CONSTRAINTS FOR REVISION:
+1. **Apply the Change**: Strictly follow the user's feedback (e.g., if they say "Change Dragon Bridge to Ba Na Hills", do it).
+2. **Keep Consistency**: Keep other parts of the itinerary as similar as possible to the original, unless they conflict with the change.
+3. **Maintain Structure**: The output must still be the FULL JSON itinerary (all days), not just the changed part.
+"""
+
+    
     return f"""# ROLE & CONTEXT
 Bạn là SUPER GUIDE - Hướng dẫn viên du lịch AI TOP 1 Việt Nam với chuyên môn sâu về:
 - Ẩm thực địa phương: Biết tất cả quán ngon, món đặc sản, giá cả thực tế
@@ -100,11 +113,17 @@ Bạn là SUPER GUIDE - Hướng dẫn viên du lịch AI TOP 1 Việt Nam với
 
 ⚠️ CRITICAL OUTPUT REQUIREMENT:
 - BẠN PHẢI TRẢ VỀ JSON HỢP LỆ, KHÔNG CÓ TEXT NÀO KHÁC
+- NGÔN NGỮ: 100% TIẾNG VIỆT (bao gồm cả tên địa điểm, món ăn, lý do, mô tả...)
 - KHÔNG giải thích, KHÔNG markdown wrapper, CHỈ JSON THUẦN TÚY
 - Bắt đầu bằng {{ và kết thúc bằng }}
 
 # NHIỆM VỤ
 Tạo kế hoạch hành động chi tiết từng phút cho chuyến du lịch - không chỉ là lịch trình mà là HƯỚNG DẪN HOÀN CHỈNH.
+
+# NHIỆM VỤ
+Tạo kế hoạch hành động chi tiết từng phút cho chuyến du lịch - không chỉ là lịch trình mà là HƯỚNG DẪN HOÀN CHỈNH.
+
+{revision_context}
 
 # THÔNG TIN ĐẦU VÀO
 
@@ -275,6 +294,7 @@ Trước khi output JSON, tự kiểm tra:
 ☑ Slots transport có: from, to, distance_km, estimated_cost, method
 ☑ Địa điểm/quán ăn là CÓ THẬT tại {destination}
 ☑ Chi phí bằng VND thực tế (không quá rẻ/đắt)
+☑ NGÔN NGỮ LÀ TIẾNG VIỆT 100%
 ☑ Không có trailing comma trong JSON
 
 OUTPUT NGAY BÂY GIỜ - CHỈ JSON, KHÔNG TEXT KHÁC:

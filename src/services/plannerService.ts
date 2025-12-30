@@ -332,6 +332,8 @@ export async function runPlanning(data: {
   tours_data: any[];
   selected_hotel: string;
   hotel_data: any;
+  feedback?: string;
+  current_itinerary?: any;
 }) {
   const response = await fetch('/api/agents/plan', {
     method: 'POST',
@@ -339,5 +341,23 @@ export async function runPlanning(data: {
     body: JSON.stringify(data)
   });
   if (!response.ok) throw new Error('Planning failed');
+  return response.json();
+}
+
+export async function getAlternatives(data: {
+  slot_context: {
+    activity: string;
+    location?: string;
+    time?: string;
+    type?: string;
+  };
+  interests?: string[];
+}) {
+  const response = await fetch('/api/agents/alternatives', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!response.ok) throw new Error('Failed to get alternatives');
   return response.json();
 }

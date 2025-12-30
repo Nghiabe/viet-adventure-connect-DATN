@@ -12,7 +12,12 @@ class PlannerState(TypedDict):
     # Additional inputs for Super Guide
     travel_style: Optional[str]  # "budget" | "mid-range" | "luxury"
     interests: Optional[List[str]]  # ["food", "history", "nature", ...]
+    interests: Optional[List[str]]  # ["food", "history", "nature", ...]
     num_travelers: Optional[int]
+    
+    # Feedback for re-generation
+    feedback: Optional[str]
+    current_itinerary: Optional[Dict[str, Any]]
     
     # Outputs
     itinerary_content: str  # Raw JSON string from LLM

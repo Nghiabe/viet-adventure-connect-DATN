@@ -1,6 +1,6 @@
 // src/components/itinerary/ItineraryTimeline.tsx
 import React, { useState } from 'react';
-import { Clock, MapPin, Star, DollarSign, Lightbulb, ChefHat, Camera, Info, ChevronRight, Volume2, Navigation } from 'lucide-react';
+import { Clock, MapPin, Star, DollarSign, Lightbulb, ChefHat, Camera, Info, ChevronRight, Volume2, Navigation, Edit2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -44,6 +44,7 @@ interface DaySchedule {
 
 interface ItineraryTimelineProps {
   schedule: DaySchedule[];
+  onEdit?: (activity: Activity) => void;
 }
 
 const getTypeColor = (type: string) => {
@@ -240,7 +241,7 @@ const DetailModal: React.FC<{ activity: Activity; children: React.ReactNode }> =
   );
 };
 
-export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({ schedule }) => {
+export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({ schedule, onEdit }) => {
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
@@ -318,6 +319,19 @@ export const ItineraryTimeline: React.FC<ItineraryTimelineProps> = ({ schedule }
                                     {activity.rating.toFixed(1)}
                                   </span>
                                 </div>
+                              )}
+                              {/* Edit Button */}
+                              {onEdit && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation(); // Prevent modal opening
+                                    onEdit(activity);
+                                  }}
+                                  className="p-1.5 hover:bg-gray-100 rounded-full text-gray-400 hover:text-primary transition-colors ml-2"
+                                  title="Chỉnh sửa hoạt động này"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
                               )}
                             </div>
                             <CardTitle className="text-lg text-gray-900 mb-2">

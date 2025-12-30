@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, Calendar, Users, DollarSign, Heart, Share2, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getItineraryById, updateItinerary, saveItinerary } from '@/services/plannerService';
+import { EditSlotDialog } from '@/components/itinerary/EditSlotDialog';
+import { getItineraryById, updateItinerary, saveItinerary, runPlanning } from '@/services/plannerService';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
@@ -40,6 +41,11 @@ const ItineraryDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Edit State
+  const [editActivity, setEditActivity] = useState<any>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
 
   const location = useLocation();
@@ -249,7 +255,7 @@ const ItineraryDetailPage: React.FC = () => {
   const handleSave = async () => {
     // Check if we have a saved ID from location state (passed from My Plans)
     // or if we already have a loaded 'id' param from URL
-    const existingId = id || locationState?.savedItineraryId;
+    const existingId = id || (locationState as any)?.savedItineraryId;
 
     if (existingId) {
       // UPDATE existing plan
@@ -331,7 +337,7 @@ const ItineraryDetailPage: React.FC = () => {
       toast({
         title: "Vui lòng đăng nhập",
         description: "Bạn cần đăng nhập để lưu kế hoạch.",
-        variant: "warning",
+        variant: "destructive",
       });
       navigate('/login');
     }
@@ -346,7 +352,7 @@ const ItineraryDetailPage: React.FC = () => {
       toast({
         title: "Chưa lưu kế hoạch",
         description: "Vui lòng lưu kế hoạch trước khi chia sẻ.",
-        variant: "warning"
+        variant: "destructive"
       });
       return;
     }
@@ -362,6 +368,55 @@ const ItineraryDetailPage: React.FC = () => {
     // But previous code redirected, so I'll keep it or just close.
     // Let's just close modal for now to keep them on the plan.
     setShowShareModal(false);
+  };
+
+  const handleUpdateItinerary = async (feedback: string) => {
+    setIsUpdating(true);
+    try {
+      // 1. Prepare current itinerary context
+      // Note: We need the raw data structure that the backend expects
+      const currentItineraryRaw = locationState?.planResult?.itinerary_content ||
+        locationState?.planResult?.itinerary_data ||
+        (itinerary._id !== 'preview' ? itinerary : null);
+
+      if (!currentItineraryRaw) {
+        toast({ title: "Lỗi", description: "Không tìm thấy dữ liệu gốc để chỉnh sửa. Vui lòng thử lại.", variant: "destructive" });
+        return;
+      }
+
+      // 2. Call Planner Agent with feedback
+      const result = await runPlanning({
+        destination_id: itinerary.generationParams?.destination || locationState.formData.destination,
+        dates: {
+          start: itinerary.startDate,
+          end: itinerary.endDate
+        },
+        selected_tours: locationState?.selectedTours || [],
+        tours_data: [], // Ideally we should pass this if available
+        selected_hotel: "",
+        hotel_data: {}, // Ideally pass this
+        feedback: feedback,
+        current_itinerary: currentItineraryRaw
+      });
+
+      // 3. Update State with new result
+      processAIResult(result, {
+        destination: itinerary.generationParams?.destination,
+        startDate: itinerary.startDate,
+        endDate: itinerary.endDate,
+        travelers: itinerary.generationParams?.travelers,
+        budget: itinerary.generationParams?.budget,
+        travelStyle: itinerary.generationParams?.style
+      });
+
+      setIsEditOpen(false);
+      toast({ title: "Thành công", description: "Lịch trình đã được cập nhật theo yêu cầu của bạn!" });
+
+    } catch (e: any) {
+      toast({ title: "Lỗi cập nhật", description: e.message, variant: "destructive" });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleViewHotelOnMap = (hotel: any) => {
@@ -522,7 +577,13 @@ const ItineraryDetailPage: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-lg border border-orange-100">
               {dailyPlan.length > 0 ? (
-                <ItineraryTimeline schedule={dailyPlan} />
+                <ItineraryTimeline
+                  schedule={dailyPlan}
+                  onEdit={(activity) => {
+                    setEditActivity(activity);
+                    setIsEditOpen(true);
+                  }}
+                />
               ) : (
                 <div className="text-center py-10 text-gray-500">Chưa có lịch trình chi tiết.</div>
               )}
@@ -614,6 +675,15 @@ const ItineraryDetailPage: React.FC = () => {
             onShare={handleShareComplete}
           />
         )}
+
+        {/* Edit Dialog */}
+        <EditSlotDialog
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          activity={editActivity}
+          onConfirm={handleUpdateItinerary}
+          isLoading={isUpdating}
+        />
       </div>
     </div>
   );

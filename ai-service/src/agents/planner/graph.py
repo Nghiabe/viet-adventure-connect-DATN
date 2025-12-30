@@ -65,10 +65,12 @@ async def node_generate_itinerary(state: PlannerState) -> Dict[str, Any]:
             style=travel_style,
             interests=interests,
             hotel_name=hotel_name,
-            hotel_address=hotel_address
+            hotel_address=hotel_address,
+            feedback=state.get("feedback", ""),
+            current_itinerary=state.get("current_itinerary")
         )
         
-        logger.info(f"[planner] Generating itinerary for {destination}, {num_days} days")
+        logger.info(f"[planner] Generating itinerary for {destination}, {num_days} days. Feedback: {bool(state.get('feedback'))}")
         
         # Helper to invoke LLM
         async def invoke_llm(llm, provider_name: str) -> str:

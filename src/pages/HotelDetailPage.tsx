@@ -95,6 +95,41 @@ const HotelDetailPage: React.FC = () => {
   const [bedType, setBedType] = useState<string>('Tiêu chuẩn');
   const [isBooking, setIsBooking] = useState(false);
 
+  // NEW: Availability State
+  const [roomAvailability, setRoomAvailability] = useState<any[]>([]);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+
+  // Effect: Fetch availability when dates change
+  useEffect(() => {
+    if (!id || !checkIn || !checkOut) return;
+
+    // Only check if valid date range
+    try {
+      const d1 = new Date(checkIn);
+      const d2 = new Date(checkOut);
+      if (d1 >= d2) return;
+    } catch { return; }
+
+    const fetchAvailability = async () => {
+      setCheckingAvailability(true);
+      try {
+        const res = await fetch(`/api/hotels/${id}/availability?checkIn=${checkIn}&checkOut=${checkOut}`);
+        const data = await res.json();
+        if (data.success) {
+          setRoomAvailability(data.data);
+        }
+      } catch (error) {
+        console.error('Failed to check availability', error);
+      } finally {
+        setCheckingAvailability(false);
+      }
+    };
+
+    // Debounce slightly
+    const timer = setTimeout(fetchAvailability, 300);
+    return () => clearTimeout(timer);
+  }, [id, checkIn, checkOut]);
+
   // Auto-select first room type when data loads
   useEffect(() => {
     const r = hotel?.raw ? safeParseJson(hotel.raw) : hotel?.raw;
@@ -219,6 +254,23 @@ const HotelDetailPage: React.FC = () => {
     if (!nightsValid) {
       toast({ title: 'Ngày trả phải sau ngày nhận' });
       return;
+    }
+
+    // Validation: Check room availability from API if possible
+    const currentRoomAvailability = roomAvailability.find(r => r.name === bedType);
+    if (currentRoomAvailability) {
+      if (currentRoomAvailability.available <= 0) {
+        toast({ title: 'Loại phòng này đã hết trong khoảng thời gian chọn', variant: 'destructive' });
+        return;
+      }
+    } else {
+      // Fallback to static check if API data missing (should rare)
+      const roomList = hotel?.roomTypes && hotel.roomTypes.length > 0 ? hotel.roomTypes : (raw?.roomTypes || []);
+      const selectedRoom = roomList.find((r: any) => r.name === bedType);
+      if (selectedRoom && selectedRoom.quantity !== undefined && selectedRoom.quantity <= 0) {
+        toast({ title: 'Loại phòng này đã hết', variant: 'destructive' });
+        return;
+      }
     }
 
     // Prepare booking details for context
@@ -421,14 +473,21 @@ const HotelDetailPage: React.FC = () => {
                       }}
                       className="w-full border rounded px-2 py-2"
                     >
-                      {raw?.roomTypes && raw.roomTypes.length > 0 ? (
-                        raw.roomTypes.map((rt: any, idx: number) => (
-                          <option key={idx} value={rt.name}>{rt.name} - {formatPrice(rt.price)}</option>
-                        ))
-                      ) : (
-                        <>
-                          <option>Tiêu chuẩn</option>
-                        </>
+                      {(hotel?.roomTypes && hotel.roomTypes.length > 0 ? hotel.roomTypes : (raw?.roomTypes || [])).map((rt: any, idx: number) => {
+                        // Use dynamic availability if present, else fallback to static
+                        const dynamicData = roomAvailability.find(r => r.name === rt.name);
+                        const qty = dynamicData ? dynamicData.available : (rt.quantity !== undefined ? rt.quantity : undefined);
+
+                        const isSoldOut = qty !== undefined && qty <= 0;
+                        return (
+                          <option key={idx} value={rt.name} disabled={isSoldOut}>
+                            {rt.name} - {formatPrice(rt.price)}
+                            {isSoldOut ? ' (Hết phòng)' : (qty !== undefined ? ` (Còn ${qty} phòng)` : '')}
+                          </option>
+                        );
+                      })}
+                      {(!hotel?.roomTypes?.length && !raw?.roomTypes?.length) && (
+                        <option>Tiêu chuẩn</option>
                       )}
                     </select>
                   </div>

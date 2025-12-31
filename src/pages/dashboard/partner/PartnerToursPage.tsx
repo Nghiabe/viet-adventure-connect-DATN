@@ -364,6 +364,7 @@ export default function PartnerToursPage() {
                     <TableHead>Đơn đặt</TableHead>
                     <TableHead>Doanh thu</TableHead>
                     <TableHead>Trạng thái</TableHead>
+                    <TableHead>Số lượng</TableHead>
                     <TableHead>Thao tác</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -425,6 +426,13 @@ export default function PartnerToursPage() {
                       {/* Cột Trạng thái */}
                       <TableCell>
                         {getStatusBadge(tour.status)}
+                      </TableCell>
+
+                      {/* Cột Số lượng */}
+                      <TableCell>
+                        <Badge variant="outline" className={(tour as any).quantity > 0 ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-red-50 text-red-700 hover:bg-red-100"}>
+                          {(tour as any).quantity || (tour as any).maxGroupSize || 0} vé
+                        </Badge>
                       </TableCell>
 
                       {/* Cột Thao tác */}

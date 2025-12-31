@@ -7,6 +7,7 @@ const TourSchema = new mongoose.Schema({
     price: Number,
     duration: String,
     maxGroupSize: Number,
+    quantity: { type: Number, default: 20 },
     highlights: [String],
     route: String,
     tips: String,

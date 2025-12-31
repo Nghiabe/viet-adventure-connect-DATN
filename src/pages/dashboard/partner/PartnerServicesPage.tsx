@@ -44,6 +44,7 @@ interface ServiceItem {
     route?: string; // For transport (e.g. Hanoi -> Sapa)
     rating: number;
     status: 'active' | 'inactive';
+    quantity?: number; // Total quantity
     image: string; // Thumbnail
     images?: string[]; // Gallery
     description?: string;
@@ -52,6 +53,7 @@ interface ServiceItem {
     roomTypes?: {
         name: string;
         price: number;
+        quantity?: number;
         description?: string;
     }[];
 }
@@ -77,13 +79,14 @@ export default function PartnerServicesPage() {
         description: '',
         inclusions: [],
         exclusions: [],
-        roomTypes: []
+        roomTypes: [],
+        quantity: 0
     });
 
     // Helper for array inputs (images, inclusions)
     const [tempImage, setTempImage] = useState('');
     const [tempInclusion, setTempInclusion] = useState('');
-    const [tempRoom, setTempRoom] = useState({ name: '', price: 0 });
+    const [tempRoom, setTempRoom] = useState({ name: '', price: 0, quantity: 1 });
     const [destinations, setDestinations] = useState<any[]>([]);
 
     useEffect(() => {
@@ -131,7 +134,7 @@ export default function PartnerServicesPage() {
         }
         if (field === 'roomTypes' && tempRoom.name && tempRoom.price) {
             setNewItem({ ...newItem, roomTypes: [...(newItem.roomTypes || []), { ...tempRoom }] });
-            setTempRoom({ name: '', price: 0 });
+            setTempRoom({ name: '', price: 0, quantity: 1 });
         }
     };
 
@@ -330,6 +333,11 @@ export default function PartnerServicesPage() {
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="p-4 pt-2">
+                                        <div className="mb-1">
+                                            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                                                Còn {service.quantity || service.roomTypes?.reduce((acc, r) => acc + (r.quantity || 0), 0) || 0} {service.type === 'hotel' ? 'phòng trống' : 'chỗ / vé'}
+                                            </span>
+                                        </div>
                                         <div className="flex items-center justify-between mt-2">
                                             <div className="text-lg font-extrabold text-blue-600">
                                                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(service.price)}
@@ -407,6 +415,18 @@ export default function PartnerServicesPage() {
                                 </div>
                             </div>
 
+                            <div className="space-y-2">
+                                <Label htmlFor="total-qty">{activeTab === 'hotel' ? 'Tổng số phòng trống (Optional)' : 'Tổng số vé / chỗ (Optional)'}</Label>
+                                <Input
+                                    id="total-qty"
+                                    type="number"
+                                    placeholder={activeTab === 'hotel' ? "Tổng số phòng của khách sạn" : "Tổng số vé / ghế"}
+                                    value={newItem.quantity || ''}
+                                    onChange={(e) => setNewItem({ ...newItem, quantity: Number(e.target.value) })}
+                                />
+                                <p className="text-xs text-muted-foreground">Nếu không nhập, hệ thống sẽ tự động tính tổng từ các loại {activeTab === 'hotel' ? 'phòng' : 'vé'}.</p>
+                            </div>
+
                             <div className="border-t pt-4">
                                 <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Hình ảnh & Media</h3>
                                 <div className="grid gap-6">
@@ -459,137 +479,74 @@ export default function PartnerServicesPage() {
 
                             {/* Type Specific Fields */}
                             {activeTab === 'hotel' ? (
-                                <>
-                                    <div className="border-t pt-4">
-                                        <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Thông tin chi tiết</h3>
-                                        <div className="grid gap-4">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="address">Địa chỉ chi tiết</Label>
-                                                    <Input
-                                                        id="address"
-                                                        placeholder="Số nhà, tên đường..."
-                                                        value={newItem.address}
-                                                        onChange={(e) => setNewItem({ ...newItem, address: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="location">Khu vực / Thành phố</Label>
-                                                    <Select
-                                                        value={newItem.location}
-                                                        onValueChange={(value) => setNewItem({ ...newItem, location: value })}
-                                                    >
-                                                        <SelectTrigger id="location">
-                                                            <SelectValue placeholder="Chọn khu vực / thành phố" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {destinations.map((dest) => (
-                                                                <SelectItem key={dest._id} value={dest.name}>
-                                                                    {dest.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-
+                                <div className="border-t pt-4">
+                                    <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Thông tin chi tiết</h3>
+                                    <div className="grid gap-4">
+                                        <div className="grid grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <Label>Tiện ích & Bao gồm</Label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        placeholder="Thêm tiện ích (VD: Wifi, Hồ bơi...)"
-                                                        value={tempInclusion}
-                                                        onChange={(e) => setTempInclusion(e.target.value)}
-                                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('inclusions'))}
-                                                        className="flex-1"
-                                                    />
-                                                    <Button type="button" onClick={() => addArrayItem('inclusions')} variant="secondary">
-                                                        <Plus className="h-4 w-4 mr-1" /> Thêm
-                                                    </Button>
-                                                </div>
-                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                    {newItem.inclusions?.map((inc, idx) => (
-                                                        <Badge key={idx} variant="outline" className="pl-2 pr-1 py-1 gap-1 text-sm font-normal">
-                                                            {inc}
-                                                            <div
-                                                                className="cursor-pointer hover:bg-muted p-0.5 rounded-full"
-                                                                onClick={() => removeArrayItem('inclusions', idx)}
-                                                            >
-                                                                <X className="h-3 w-3 text-muted-foreground" />
-                                                            </div>
-                                                        </Badge>
-                                                    ))}
-                                                    {(!newItem.inclusions || newItem.inclusions.length === 0) && (
-                                                        <span className="text-sm text-muted-foreground italic">Chưa có tiện ích nào</span>
-                                                    )}
-                                                </div>
+                                                <Label htmlFor="address">Địa chỉ chi tiết</Label>
+                                                <Input
+                                                    id="address"
+                                                    placeholder="Số nhà, tên đường..."
+                                                    value={newItem.address}
+                                                    onChange={(e) => setNewItem({ ...newItem, address: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="location">Khu vực / Thành phố</Label>
+                                                <Select
+                                                    value={newItem.location}
+                                                    onValueChange={(value) => setNewItem({ ...newItem, location: value })}
+                                                >
+                                                    <SelectTrigger id="location">
+                                                        <SelectValue placeholder="Chọn khu vực / thành phố" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {destinations.map((dest) => (
+                                                            <SelectItem key={dest._id} value={dest.name}>
+                                                                {dest.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Room Types */}
-                                    <div className="border-t pt-4">
-                                        <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Loại phòng (Room Types)</h3>
-
-                                        <div className="bg-muted/30 rounded-xl p-4 border space-y-4">
-                                            <div className="grid grid-cols-12 gap-3 items-end">
-                                                <div className="col-span-7 space-y-1.5">
-                                                    <Label className="text-xs">Tên loại phòng</Label>
-                                                    <Input
-                                                        placeholder="VD: Deluxe King Room"
-                                                        value={tempRoom.name}
-                                                        onChange={(e) => setTempRoom({ ...tempRoom, name: e.target.value })}
-                                                        className="bg-background"
-                                                    />
-                                                </div>
-                                                <div className="col-span-4 space-y-1.5">
-                                                    <Label className="text-xs">Giá mỗi đêm</Label>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="0"
-                                                        value={tempRoom.price || ''}
-                                                        onChange={(e) => setTempRoom({ ...tempRoom, price: Number(e.target.value) })}
-                                                        className="bg-background"
-                                                    />
-                                                </div>
-                                                <div className="col-span-1">
-                                                    <Button type="button" size="icon" className="w-full" onClick={() => addArrayItem('roomTypes')}>
-                                                        <Plus className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                        <div className="space-y-2">
+                                            <Label>Tiện ích & Bao gồm</Label>
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    placeholder="Thêm tiện ích (VD: Wifi, Hồ bơi...)"
+                                                    value={tempInclusion}
+                                                    onChange={(e) => setTempInclusion(e.target.value)}
+                                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addArrayItem('inclusions'))}
+                                                    className="flex-1"
+                                                />
+                                                <Button type="button" onClick={() => addArrayItem('inclusions')} variant="secondary">
+                                                    <Plus className="h-4 w-4 mr-1" /> Thêm
+                                                </Button>
                                             </div>
-
-                                            <div className="space-y-2">
-                                                {newItem.roomTypes?.map((room, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center p-3 bg-background border rounded-lg shadow-sm">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                                                <Hotel className="h-4 w-4" />
-                                                            </div>
-                                                            <div>
-                                                                <div className="font-medium text-sm">{room.name}</div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(room.price)}
-                                                                </div>
-                                                            </div>
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {newItem.inclusions?.map((inc, idx) => (
+                                                    <Badge key={idx} variant="outline" className="pl-2 pr-1 py-1 gap-1 text-sm font-normal">
+                                                        {inc}
+                                                        <div
+                                                            className="cursor-pointer hover:bg-muted p-0.5 rounded-full"
+                                                            onClick={() => removeArrayItem('inclusions', idx)}
+                                                        >
+                                                            <X className="h-3 w-3 text-muted-foreground" />
                                                         </div>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => removeArrayItem('roomTypes', idx)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
+                                                    </Badge>
                                                 ))}
-                                                {(!newItem.roomTypes || newItem.roomTypes.length === 0) && (
-                                                    <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground border-2 border-dashed rounded-lg">
-                                                        <p className="text-sm">Chưa có loại phòng nào</p>
-                                                        <p className="text-xs opacity-70">Thêm loại phòng ở trên để bắt đầu</p>
-                                                    </div>
+                                                {(!newItem.inclusions || newItem.inclusions.length === 0) && (
+                                                    <span className="text-sm text-muted-foreground italic">Chưa có tiện ích nào</span>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
-                                </>
+                                </div>
                             ) : (
-                                <div className="space-y-2 pt-2">
+                                <div className="space-y-2 pt-2 border-t mt-4">
                                     <Label>Tuyến đường <span className="text-red-500">*</span></Label>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
@@ -637,6 +594,81 @@ export default function PartnerServicesPage() {
                                     <p className="text-xs text-muted-foreground">Chọn điểm đi và điểm đến từ danh sách có sẵn.</p>
                                 </div>
                             )}
+
+                            {/* Room/Ticket Types - Shared for ALL types */}
+                            <div className="border-t pt-4">
+                                <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">{activeTab === 'hotel' ? 'Loại phòng (Room Types)' : 'Loại vé / ghế (Ticket Types)'}</h3>
+
+                                <div className="bg-muted/30 rounded-xl p-4 border space-y-4">
+                                    <div className="grid grid-cols-12 gap-3 items-end">
+                                        <div className="col-span-7 space-y-1.5">
+                                            <Label className="text-xs">{activeTab === 'hotel' ? 'Tên loại phòng' : 'Tên loại vé / ghế'}</Label>
+                                            <Input
+                                                placeholder={activeTab === 'hotel' ? "VD: Deluxe King Room" : "VD: Vé Phổ Thông"}
+                                                value={tempRoom.name}
+                                                onChange={(e) => setTempRoom({ ...tempRoom, name: e.target.value })}
+                                                className="bg-background"
+                                            />
+                                        </div>
+                                        <div className="col-span-3 space-y-1.5">
+                                            <Label className="text-xs">Giá {activeTab === 'hotel' ? 'mỗi đêm' : 'mỗi vé'}</Label>
+                                            <Input
+                                                type="number"
+                                                placeholder="0"
+                                                value={tempRoom.price || ''}
+                                                onChange={(e) => setTempRoom({ ...tempRoom, price: Number(e.target.value) })}
+                                                className="bg-background"
+                                            />
+                                        </div>
+                                        <div className="col-span-1 space-y-1.5">
+                                            <Label className="text-xs">Số lượng</Label>
+                                            <Input
+                                                type="number"
+                                                placeholder="SL"
+                                                min={1}
+                                                value={tempRoom.quantity || 1}
+                                                onChange={(e) => setTempRoom({ ...tempRoom, quantity: Number(e.target.value) })}
+                                                className="bg-background px-2"
+                                            />
+                                        </div>
+                                        <div className="col-span-1">
+                                            <Button type="button" size="icon" className="w-full" onClick={() => addArrayItem('roomTypes')}>
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {newItem.roomTypes?.map((room, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-3 bg-background border rounded-lg shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                        <Hotel className="h-4 w-4" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium text-sm">{room.name}</div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(room.price)}
+                                                            <span className="ml-2 text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded text-[10px]">
+                                                                SL: {room.quantity || 1}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500" onClick={() => removeArrayItem('roomTypes', idx)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                        {(!newItem.roomTypes || newItem.roomTypes.length === 0) && (
+                                            <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+                                                <p className="text-sm">Chưa có {activeTab === 'hotel' ? 'loại phòng' : 'loại vé'} nào</p>
+                                                <p className="text-xs opacity-70">Thêm {activeTab === 'hotel' ? 'loại phòng' : 'loại vé'} ở trên để bắt đầu</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </ScrollArea>
                     <DialogFooter>

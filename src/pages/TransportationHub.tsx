@@ -155,36 +155,19 @@ const TransportationHub = () => {
     let type: any = activeTab.slice(0, -1);
     if (activeTab === 'buses') type = 'bus';
 
-    // Fallback for ID generation or mapping
-    const id = result.id || result._id || Math.random().toString(36).substr(2, 9);
-    const operator = result.operator || result.airline;
+    const id = result.id || result._id;
+    if (!id) {
+      console.error("Missing ID for transport result");
+      return;
+    }
 
-    initiateBooking({
-      type,
-      title: `${type === 'flight' ? 'Vé máy bay' : type === 'train' ? 'Vé tàu' : 'Vé xe'} ${operator} - ${result.departure.station || result.departure.airport} đi ${result.arrival.station || result.arrival.airport}`,
-      operator: operator,
-      transportNumber: id,
-      flightNumber: type === 'flight' ? id : undefined,
-      origin: {
-        code: result.departure.station || result.departure.airport,
-        city: result.departure.station || result.departure.airport,
-        station: result.departure.station,
-        time: result.departure.time
-      },
-      destination: {
-        code: result.arrival.station || result.arrival.airport,
-        city: result.arrival.station || result.arrival.airport,
-        station: result.arrival.station,
-        time: result.arrival.time
-      },
-      bookingDate: departureDate?.toISOString(),
-      duration: result.duration,
-      participantsTotal: passengers,
-      unitPrice: result.price,
-      clientComputedTotal: result.price * passengers,
-      class: result.class,
+    const params = new URLSearchParams({
+      date: departureDate ? format(departureDate, 'yyyy-MM-dd') : '',
+      passengers: passengers.toString()
     });
-    navigate('/checkout');
+
+    // Navigate to detail page
+    navigate(`/transport/${id}?${params.toString()}`);
   };
 
   const handleChat = async (result: any) => {

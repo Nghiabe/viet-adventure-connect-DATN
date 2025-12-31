@@ -26,6 +26,7 @@ import BookingSuccessPage from "./pages/BookingSuccessPage";
 import BookingDetailPage from "./pages/BookingDetailPage";
 import ChatPage from "./pages/ChatPage";
 import TransportationHub from "./pages/TransportationHub";
+import TransportDetailPage from "./pages/TransportDetailPage";
 import CommunityHub from "./pages/CommunityHub";
 import StoryDetailPage from "./pages/StoryDetailPage";
 import MobileAppLanding from "./pages/MobileAppLanding";
@@ -78,6 +79,7 @@ const App = () => (
                 <Route path="/booking/success" element={<BookingSuccessPage />} />
                 <Route path="/booking/success/:id" element={<BookingSuccessPage />} />
                 <Route path="/transportation" element={<TransportationHub />} />
+                <Route path="/transport/:id" element={<TransportDetailPage />} />
                 <Route path="/community" element={<CommunityHub />} />
                 <Route path="/community/story/:id" element={<StoryDetailPage />} />
                 <Route path="/mobile-app" element={<MobileAppLanding />} />

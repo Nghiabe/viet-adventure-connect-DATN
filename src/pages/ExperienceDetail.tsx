@@ -2,7 +2,7 @@
  * ExperienceDetail Page
  * Displays detailed tour information with booking functionality.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/home/Header';
@@ -47,7 +47,8 @@ const ExperienceDetail = () => {
     queryKey: ['tourDetail', id],
     queryFn: () => getTourById(id!),
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -57,6 +58,10 @@ const ExperienceDetail = () => {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+
+  // Availability State
+  const [availability, setAvailability] = useState<{ available: number, max: number, booked: number } | null>(null);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   const tour = data?.tour;
   const reviews = data?.reviews || [];
@@ -89,6 +94,44 @@ const ExperienceDetail = () => {
       });
     }
   };
+
+  // Check Availability Effect
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!id || !selectedDate) {
+        setAvailability(null);
+        return;
+      }
+
+      setIsCheckingAvailability(true);
+      try {
+        // Format date as YYYY-MM-DD for consistency
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        // Manually construct query string since apiClient.get doesn't accept config object
+        const res = await apiClient.get<any>(`/tours/${id}/availability?date=${dateStr}`);
+
+        if (res.success && res.data) {
+          setAvailability({
+            available: res.data.available,
+            max: res.data.maxGroupSize,
+            booked: res.data.bookedCount
+          });
+        }
+      } catch (error) {
+        console.error("Failed to check availability:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể kiểm tra tình trạng chỗ. Vui lòng thử lại.",
+          variant: "destructive"
+        });
+        setAvailability(null);
+      } finally {
+        setIsCheckingAvailability(false);
+      }
+    };
+
+    checkAvailability();
+  }, [id, selectedDate, toast]);
 
   const price = Number(tour?.price ?? 0);
   const totalPrice = price * adults + (price * 0.7 * children);
@@ -543,23 +586,64 @@ const ExperienceDetail = () => {
                 </div>
 
                 {/* Quantity */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Người lớn</label>
-                    <div className="flex items-center border rounded-xl h-12">
-                      <button onClick={() => setAdults(Math.max(1, adults - 1))} className="px-4 h-full hover:bg-gray-50">-</button>
-                      <span className="flex-1 text-center font-medium">{adults}</span>
-                      <button onClick={() => setAdults(adults + 1)} className="px-4 h-full hover:bg-gray-50">+</button>
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-medium">Số lượng khách</label>
+
+                    {/* Availability Status */}
+                    {isCheckingAvailability ? (
+                      <span className="text-xs text-muted-foreground animate-pulse">Đang kiểm tra chỗ...</span>
+                    ) : selectedDate ? (
+                      availability ? (
+                        <span className={`text-xs font-medium ${availability.available <= 0 ? 'text-red-500' :
+                          availability.available < 5 ? 'text-orange-500' : 'text-green-600'
+                          }`}>
+                          {availability.available <= 0 ? 'Đã hết chỗ' : `Còn ${availability.available} chỗ`}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Chọn ngày để xem chỗ</span>
+                      )
+                    ) : (
+                      <span className={`text-xs text-xs font-medium ${(tour?.maxGroupSize || 0) <= 0 ? 'text-red-500' :
+                        (tour?.maxGroupSize || 0) < 5 ? 'text-orange-500' : 'text-green-600'
+                        }`}>
+                        {/* Fallback to maxGroupSize if no date selected, though technically we want to force date selection */}
+                        {(tour?.maxGroupSize || 0) <= 0 ? 'Đã hết chỗ' : `Tổng ${tour?.maxGroupSize || 0} chỗ`}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Người lớn</label>
+                      <div className="flex items-center border rounded-xl h-12">
+                        <button onClick={() => setAdults(Math.max(1, adults - 1))} className="px-4 h-full hover:bg-gray-50">-</button>
+                        <span className="flex-1 text-center font-medium">{adults}</span>
+                        <button onClick={() => setAdults(adults + 1)} className="px-4 h-full hover:bg-gray-50">+</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1 block">Trẻ em</label>
+                      <div className="flex items-center border rounded-xl h-12">
+                        <button onClick={() => setChildren(Math.max(0, children - 1))} className="px-4 h-full hover:bg-gray-50">-</button>
+                        <span className="flex-1 text-center font-medium">{children}</span>
+                        <button onClick={() => setChildren(children + 1)} className="px-4 h-full hover:bg-gray-50">+</button>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Trẻ em</label>
-                    <div className="flex items-center border rounded-xl h-12">
-                      <button onClick={() => setChildren(Math.max(0, children - 1))} className="px-4 h-full hover:bg-gray-50">-</button>
-                      <span className="flex-1 text-center font-medium">{children}</span>
-                      <button onClick={() => setChildren(children + 1)} className="px-4 h-full hover:bg-gray-50">+</button>
-                    </div>
-                  </div>
+
+                  {/* Over Capacity Warning */}
+                  {selectedDate && availability && (adults + children > availability.available) && availability.available > 0 && (
+                    <p className="text-xs text-red-500 mt-2">
+                      Số lượng khách vượt quá số chỗ còn lại ({availability.available}).
+                    </p>
+                  )}
+                  {/* Fallback Warning */}
+                  {!selectedDate && (adults + children > (tour?.maxGroupSize || 0)) && (tour?.maxGroupSize || 0) > 0 && (
+                    <p className="text-xs text-red-500 mt-2">
+                      Số lượng khách vượt quá tổng số chỗ ({tour?.maxGroupSize}).
+                    </p>
+                  )}
                 </div>
 
                 {/* Total */}
@@ -573,13 +657,21 @@ const ExperienceDetail = () => {
                   size="lg"
                   className="w-full h-14 text-lg rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
                   onClick={() => setShowConfirm(true)}
-                  disabled={!selectedDate}
+                  disabled={
+                    !selectedDate ||
+                    isCheckingAvailability ||
+                    (availability && availability.available <= 0) ||
+                    (availability && (adults + children > availability.available)) ||
+                    (!availability && (tour?.maxGroupSize || 0) <= 0) // Fallback
+                  }
                 >
-                  Đặt ngay
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  {isCheckingAvailability ? 'Đang kiểm tra...' :
+                    (availability && availability.available <= 0) ? 'Hết chỗ ngày này' :
+                      ((tour?.maxGroupSize || 0) <= 0 && !selectedDate) ? 'Hết chỗ' : 'Đặt ngay'}
+                  {!isCheckingAvailability && <ArrowRight className="ml-2 w-5 h-5" />}
                 </Button>
 
-                {!selectedDate && (
+                {!selectedDate && (tour?.maxGroupSize || 0) > 0 && (
                   <p className="text-sm text-muted-foreground text-center mt-3">Vui lòng chọn ngày để đặt tour</p>
                 )}
               </div>

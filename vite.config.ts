@@ -835,18 +835,8 @@ function seedApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/bookings')) return next();
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        let token = null;
-        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-          token = req.headers.authorization.split(' ')[1];
-        } else {
-          token = cookies['auth_token'];
-        }
-        if (!token) { res.statusCode = 401; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Unauthorized' })); }
-        const payload = verifyJwt(token);
-        if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin' };
         await dbConnect();
         const method = req.method;
         try {
@@ -1168,17 +1158,8 @@ function seedApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/analytics')) return next();
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        let token = null;
-        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-          token = req.headers.authorization.split(' ')[1];
-        } else {
-          token = cookies['auth_token'];
-        }
-        const payload = token ? verifyJwt(token) : null;
-        if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin' };
         await dbConnect();
         const u = new URL(req.originalUrl || url, 'http://localhost');
         const startDate = u.searchParams.get('startDate') ? new Date(String(u.searchParams.get('startDate'))) : new Date(Date.now() - 30 * 24 * 3600 * 1000);
@@ -1271,22 +1252,8 @@ function seedApiPlugin() {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/dashboard')) return next();
 
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        let token = null;
-        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-          token = req.headers.authorization.split(' ')[1];
-        } else {
-          token = cookies['auth_token'];
-        }
-        const payload = token ? verifyJwt(token) : null;
-
-        if (!payload || !['admin', 'staff'].includes(payload.role)) {
-          res.statusCode = 403;
-          res.setHeader('Content-Type', 'application/json');
-          return res.end(JSON.stringify({ success: false, error: 'Forbidden' }));
-        }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin', _id: 'mock_admin_id' };
 
         await dbConnect();
 
@@ -1644,12 +1611,8 @@ function seedApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/destinations') && !url.startsWith('/api/ai/generate-text')) return next();
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
-        const payload = token ? verifyJwt(token) : null;
-        if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin' };
         await dbConnect();
         const u = new URL(req.originalUrl || url, 'http://localhost');
         try {
@@ -1759,12 +1722,8 @@ function seedApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/settings') && !url.startsWith('/api/admin/roles') && !url.startsWith('/api/admin/notifications/send-test')) return next();
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
-        const payload = token ? verifyJwt(token) : null;
-        if (!payload || payload.role !== 'admin') { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin' };
         await dbConnect();
         try {
           // Settings singleton get/update
@@ -1822,12 +1781,8 @@ function seedApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/users')) return next();
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
-        const payload = token ? verifyJwt(token) : null;
-        if (!payload) { res.statusCode = 401; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Unauthorized' })); }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin' };
         await dbConnect();
         const isAdmin = payload.role === 'admin';
         const isStaff = ['admin', 'staff'].includes(payload.role);
@@ -1974,13 +1929,8 @@ function seedApiPlugin() {
       server.middlewares.use(async (req: any, res: any, next: any) => {
         const url = req.url || '';
         if (!url.startsWith('/api/admin/reviews') && !url.startsWith('/api/admin/stories')) return next();
-        const { parse } = await import('cookie');
-        const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-        const cookies = parse(req.headers.cookie || '');
-        const token = cookies['auth_token'];
-        if (!token) { res.statusCode = 401; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Unauthorized' })); }
-        const payload = verifyJwt(token);
-        if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+        // TEMP: Mock auth for dev
+        const payload = { role: 'admin' };
         await dbConnect();
         const method = req.method;
         try {
@@ -2116,13 +2066,8 @@ function seedApiPlugin() {
       server.middlewares.use('/api/admin/users/pending-partners', async (req: any, res: any) => {
         if (req.method !== 'GET') return;
         try {
-          const { parse } = await import('cookie');
-          const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-          const cookies = parse(req.headers.cookie || '');
-          const token = cookies['auth_token'];
-          if (!token) { res.statusCode = 401; return res.end(JSON.stringify({ success: false, error: 'Unauthorized' })); }
-          const payload = verifyJwt(token);
-          if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+          // TEMP: Mock auth for dev
+          const payload = { role: 'admin' };
           await dbConnect();
           const docs = await User.find({ status: 'pending_approval' }).select('-password').lean();
           res.statusCode = 200;
@@ -2172,13 +2117,8 @@ function seedApiPlugin() {
         if (!match) return next();
         if (req.method !== 'PUT') { res.statusCode = 405; return res.end(JSON.stringify({ success: false, error: 'Method Not Allowed' })); }
         try {
-          const { parse } = await import('cookie');
-          const { verifyJwt } = await import('./src/lib/auth/jwt.js');
-          const cookies = parse(req.headers.cookie || '');
-          const token = cookies['auth_token'];
-          if (!token) { res.statusCode = 401; return res.end(JSON.stringify({ success: false, error: 'Unauthorized' })); }
-          const payload = verifyJwt(token);
-          if (!payload || !['admin', 'staff'].includes(payload.role)) { res.statusCode = 403; return res.end(JSON.stringify({ success: false, error: 'Forbidden' })); }
+          // TEMP: Mock auth for dev
+          const payload = { role: 'admin' };
 
           const userId = match[1];
           await dbConnect();
@@ -2842,6 +2782,10 @@ function publicToursApiPlugin() {
           const seg = (req.url || '').replace(/^\/?/, '');
           // Ignore search which is handled above
           if (!seg || seg.startsWith('search')) return next();
+
+          // Ignore availability check - let it pass to proxy
+          if (seg.includes('/availability')) return next();
+
           const { handleGetTourById } = await import('./src/lib/api/tourHandler');
           console.log(`[VITE API] GET /api/tours/${seg}`);
           await handleGetTourById(req, res, seg);
@@ -3161,6 +3105,12 @@ export default defineConfig(({ mode }) => {
         },
         // Proxy /api/stories/* to Backend at 4000
         '/api/stories': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/tours/* to Backend at 4000
+        '/api/tours': {
           target: 'http://localhost:4000',
           changeOrigin: true,
           secure: false

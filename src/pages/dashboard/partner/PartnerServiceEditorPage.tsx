@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import apiClient from '@/services/apiClient';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2, Hotel, Plane, Train, Bus } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Hotel, Plane, Train, Bus, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useDropzone } from 'react-dropzone';
 import { Loader2 } from 'lucide-react';
@@ -24,6 +24,7 @@ interface ServiceItem {
     route?: string;
     rating: number; // usually read-only or managed separately
     status: 'active' | 'inactive';
+    quantity?: number; // Total quantity
     image: string;
     images: string[];
     description?: string;
@@ -33,6 +34,7 @@ interface ServiceItem {
     roomTypes: {
         name: string;
         price: number;
+        quantity?: number;
         description?: string;
         amenities?: string[];
         images?: string[];
@@ -67,7 +69,8 @@ export default function PartnerServiceEditorPage() {
     const [tempExclusion, setTempExclusion] = useState('');
 
     // Helper state for adding room types
-    const [newRoom, setNewRoom] = useState({ name: '', price: 0, description: '' });
+    const [newRoom, setNewRoom] = useState({ name: '', price: 0, quantity: 5, description: '' });
+    const [editingRoomIndex, setEditingRoomIndex] = useState<number | null>(null);
 
     useEffect(() => {
         fetchDestinations();
@@ -179,7 +182,7 @@ export default function PartnerServiceEditorPage() {
                 // Ensure number types
                 price: Number(service.price),
                 rating: Number(service.rating || 0),
-                roomTypes: service.roomTypes.map(r => ({ ...r, price: Number(r.price) }))
+                roomTypes: service.roomTypes.map(r => ({ ...r, price: Number(r.price), quantity: Number(r.quantity || 0) }))
             };
 
             const endpoint = isNew ? '/partner/services' : `/partner/services/${id}`;
@@ -220,11 +223,34 @@ export default function PartnerServiceEditorPage() {
             toast.error('Vui lòng nhập tên và giá phòng');
             return;
         }
-        setService(prev => ({
-            ...prev,
-            roomTypes: [...(prev.roomTypes || []), { ...newRoom }]
-        }));
-        setNewRoom({ name: '', price: 0, description: '' });
+
+        if (editingRoomIndex !== null) {
+            // Update existing room
+            const updatedRooms = [...(service.roomTypes || [])];
+            updatedRooms[editingRoomIndex] = { ...newRoom };
+            setService(prev => ({ ...prev, roomTypes: updatedRooms }));
+            setEditingRoomIndex(null);
+            toast.success('Đã cập nhật loại phòng');
+        } else {
+            // Add new room
+            setService(prev => ({
+                ...prev,
+                roomTypes: [...(prev.roomTypes || []), { ...newRoom }]
+            }));
+        }
+
+        setNewRoom({ name: '', price: 0, quantity: 5, description: '' });
+    };
+
+    const handleEditRoom = (index: number) => {
+        const room = service.roomTypes[index];
+        setNewRoom({
+            name: room.name,
+            price: room.price,
+            quantity: room.quantity || 5,
+            description: room.description || ''
+        });
+        setEditingRoomIndex(index);
     };
 
     const removeRoomType = (index: number) => {
@@ -299,6 +325,16 @@ export default function PartnerServiceEditorPage() {
                         </div>
                     </Card>
 
+                    {/* Generic Quantity Section for ALL types */}
+                    <Card className="p-6 space-y-4">
+                        <h3 className="font-semibold text-lg">{service.type === 'hotel' ? 'Tổng số phòng' : 'Tổng số vé / chỗ'}</h3>
+                        <div className="space-y-2">
+                            <Label>{service.type === 'hotel' ? 'Tổng số phòng trống của khách sạn' : 'Tổng số ghế / vé'}</Label>
+                            <Input type="number" value={service.quantity || 0} onChange={e => setService({ ...service, quantity: Number(e.target.value) })} />
+                            <p className="text-xs text-muted-foreground">{service.type === 'hotel' ? 'Nhập tổng số phòng nếu bạn muốn quản lý chung' : 'Nhập tổng số chỗ nếu quản lý chung'}</p>
+                        </div>
+                    </Card>
+
                     {service.type === 'hotel' && (
                         <Card className="p-6 space-y-4">
                             <h3 className="font-semibold text-lg">Địa điểm & Tiện ích</h3>
@@ -335,34 +371,50 @@ export default function PartnerServiceEditorPage() {
                         </Card>
                     )}
 
-                    {service.type === 'hotel' && (
-                        <Card className="p-6 space-y-4">
-                            <div className="flex items-center justify-between">
-                                <h3 className="font-semibold text-lg">Các loại phòng</h3>
-                            </div>
+                    {/* Room/Ticket Types Section - Enable for ALL types */}
+                    <Card className="p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-lg">{service.type === 'hotel' ? 'Các loại phòng' : 'Các loại vé / ghế'}</h3>
+                        </div>
 
-                            <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <Input placeholder="Tên phòng (VD: Deluxe King)" value={newRoom.name} onChange={e => setNewRoom({ ...newRoom, name: e.target.value })} />
-                                    <Input type="number" placeholder="Giá phòng" value={newRoom.price || ''} onChange={e => setNewRoom({ ...newRoom, price: Number(e.target.value) })} />
-                                </div>
+                        <div className="grid gap-4 p-4 border rounded-lg bg-muted/20">
+                            <div className="grid grid-cols-2 gap-4">
+                                <Input placeholder={service.type === 'hotel' ? "Tên phòng (VD: Deluxe King)" : "Loại vé (VD: Vé phổ thông)"} value={newRoom.name} onChange={e => setNewRoom({ ...newRoom, name: e.target.value })} />
+                                <Input type="number" placeholder="Giá" value={newRoom.price || ''} onChange={e => setNewRoom({ ...newRoom, price: Number(e.target.value) })} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                <Input type="number" placeholder={service.type === 'hotel' ? "Số lượng phòng" : "Số lượng vé"} value={newRoom.quantity || ''} onChange={e => setNewRoom({ ...newRoom, quantity: Number(e.target.value) })} />
                                 <Input placeholder="Mô tả ngắn" value={newRoom.description} onChange={e => setNewRoom({ ...newRoom, description: e.target.value })} />
-                                <Button type="button" variant="secondary" onClick={addRoomType} className="w-full">Thêm loại phòng</Button>
                             </div>
+                            <div className="flex gap-2">
+                                {editingRoomIndex !== null && (
+                                    <Button type="button" variant="outline" onClick={() => {
+                                        setEditingRoomIndex(null);
+                                        setNewRoom({ name: '', price: 0, quantity: 5, description: '' });
+                                    }} className="w-full">Hủy chỉnh sửa</Button>
+                                )}
+                                <Button type="button" variant={editingRoomIndex !== null ? "default" : "secondary"} onClick={addRoomType} className="w-full">
+                                    {editingRoomIndex !== null ? (service.type === 'hotel' ? 'Cập nhật loại phòng' : 'Cập nhật loại vé') : (service.type === 'hotel' ? 'Thêm loại phòng' : 'Thêm loại vé')}
+                                </Button>
+                            </div>
+                        </div>
 
-                            <div className="space-y-3">
-                                {service.roomTypes?.map((room, idx) => (
-                                    <div key={idx} className="flex justify-between items-center p-3 border rounded-lg bg-card">
-                                        <div>
-                                            <p className="font-medium">{room.name}</p>
-                                            <p className="text-sm text-muted-foreground">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(room.price)}</p>
-                                        </div>
+                        <div className="space-y-3">
+                            {service.roomTypes?.map((room, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-3 border rounded-lg bg-card">
+                                    <div>
+                                        <p className="font-medium">{room.name} <span className="text-xs font-normal text-muted-foreground ml-2">(SL: {room.quantity || 0})</span></p>
+                                        <p className="text-sm text-muted-foreground">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(room.price)}</p>
+
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <Button size="sm" variant="ghost" className="text-blue-500 hover:bg-blue-50" onClick={() => handleEditRoom(idx)}><Edit className="h-4 w-4" /></Button>
                                         <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removeRoomType(idx)}><Trash2 className="h-4 w-4" /></Button>
                                     </div>
-                                ))}
-                            </div>
-                        </Card>
-                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
                 </div>
 
                 <div className="space-y-6">
@@ -422,6 +474,6 @@ export default function PartnerServiceEditorPage() {
                     </Card>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

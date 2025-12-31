@@ -13,6 +13,7 @@ const PartnerServiceSchema = new mongoose.Schema({
     image: { type: String, default: '' }, // Main thumbnail
     images: [String], // Gallery
     description: String,
+    quantity: { type: Number, default: 0 }, // Total availability
 
     // Hotel Specifics
     facilities: [String],
@@ -21,9 +22,18 @@ const PartnerServiceSchema = new mongoose.Schema({
     roomTypes: [{
         name: String,
         price: Number,
+        quantity: { type: Number, default: 5 }, // Added quantity field
         description: String,
         amenities: [String],
         images: [String]
+    }],
+    // Transport Specifics
+    ticketTypes: [{
+        name: String,
+        price: Number,
+        quantity: { type: Number, default: 50 },
+        description: String,
+        class: { type: String, default: 'Standard' }
     }]
 }, { timestamps: true });
 

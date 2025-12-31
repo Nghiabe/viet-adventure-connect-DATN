@@ -443,7 +443,17 @@ export default function ToursPage() {
                             </>
                           )}
 
-                          <DropdownMenuItem>Lưu trữ</DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-orange-500 cursor-pointer"
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              if (window.confirm('Bạn có chắc chắn muốn lưu trữ tour này?')) {
+                                updateStatusMutation.mutate({ id: tour._id, status: 'archived' });
+                              }
+                            }}
+                          >
+                            Lưu trữ
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-500"
                             onClick={() => {

@@ -38,6 +38,7 @@ export default function PartnerTourEditorPage() {
         destination: '', // legacy single
         mainImage: undefined,
         maxGroupSize: 0,
+        quantity: 20
     });
 
     // ------------------ ensure initial one empty destination row for UX ------------------
@@ -198,6 +199,7 @@ export default function PartnerTourEditorPage() {
                 imageGallery: Array.isArray(doc.imageGallery) ? doc.imageGallery.filter(Boolean) : [],
                 mainImage: doc.mainImage ? doc.mainImage : undefined,
                 maxGroupSize: typeof doc.maxGroupSize === 'string' ? Number(doc.maxGroupSize) : doc.maxGroupSize,
+                quantity: typeof doc.quantity === 'string' ? Number(doc.quantity) : doc.quantity,
             };
 
             // Build destinations array
@@ -413,8 +415,12 @@ export default function PartnerTourEditorPage() {
                                 <Input type="number" value={doc.price} onChange={(e) => setDoc({ ...doc, price: Number(e.target.value) })} />
                             </div>
                             <div>
-                                <div className="text-sm text-secondary-foreground">Số khách tối đa</div>
+                                <div className="text-sm text-secondary-foreground">Số lượng vé còn</div>
                                 <Input type="number" value={doc.maxGroupSize || 0} onChange={(e) => setDoc({ ...doc, maxGroupSize: Number(e.target.value) })} />
+                            </div>
+                            <div>
+                                <div className="text-sm text-secondary-foreground">Tổng số vé / chỗ</div>
+                                <Input type="number" value={doc.quantity || 20} onChange={(e) => setDoc({ ...doc, quantity: Number(e.target.value) })} />
                             </div>
                         </div>
                         <div>

@@ -203,12 +203,12 @@ async function handler(req: IncomingMessage & { user?: any }, res: ServerRespons
       // Normalize itinerary: ensure every item has non-empty description (avoid mongoose required error)
       const safeItinerary = Array.isArray(data.itinerary)
         ? data.itinerary.map((it: any, idx: number) => ({
-            day: it.day ?? idx + 1,
-            title: it.title ?? `Ngày ${it.day ?? idx + 1}`,
-            description: (typeof it.description === 'string' && it.description.trim().length > 0)
-              ? it.description
-              : (it.title ?? `Ngày ${it.day ?? idx + 1}`),
-          }))
+          day: it.day ?? idx + 1,
+          title: it.title ?? `Ngày ${it.day ?? idx + 1}`,
+          description: (typeof it.description === 'string' && it.description.trim().length > 0)
+            ? it.description
+            : (it.title ?? `Ngày ${it.day ?? idx + 1}`),
+        }))
         : [];
 
       // Build destinations array (if provided)
@@ -272,9 +272,90 @@ async function handler(req: IncomingMessage & { user?: any }, res: ServerRespons
       }
     }
 
-    // If not handled method
-    res.setHeader('Allow', ['GET', 'POST']);
-    return send(res, 405, { success: false, error: `Method ${req.method} Not Allowed` });
+    // -------------------
+    // ROUTING: Check for sub-paths (/:id, /:id/status, /:id/clone)
+    // -------------------
+    const requestUrl = new URL(req.url || '', 'http://localhost'); // e.g. /api/admin/tours/123/status
+    const pathParts = requestUrl.pathname.replace('/api/admin/tours', '').split('/').filter(Boolean);
+    // pathParts examples:
+    // [] -> root
+    // ['123'] -> /:id
+    // ['123', 'status'] -> /:id/status
+    // ['123', 'clone'] -> /:id/clone
+
+    // Helper: Valid ObjectId check
+    const isValidId = (id: string) => mongoose.Types.ObjectId.isValid(id);
+
+    // 1. PUT /:id/status
+    if (req.method === 'PUT' && pathParts.length === 2 && pathParts[1] === 'status') {
+      const id = pathParts[0];
+      if (!isValidId(id)) return send(res, 400, { success: false, error: 'Invalid ID' });
+
+      // Read body
+      let raw = '';
+      await new Promise<void>((resolve, reject) => {
+        req.on('data', (chunk) => raw += chunk);
+        req.on('end', () => resolve());
+        req.on('error', reject);
+      });
+      const { status } = raw ? JSON.parse(raw) : { status: null };
+
+      if (!['published', 'draft', 'archived', 'pending', 'rejected'].includes(status)) {
+        return send(res, 400, { success: false, error: 'Invalid status' });
+      }
+
+      const updated = await Tour.findByIdAndUpdate(id, { status }, { new: true });
+      if (!updated) return send(res, 404, { success: false, error: 'Tour not found' });
+
+      return send(res, 200, { success: true, data: updated });
+    }
+
+    // 2. DELETE /:id
+    if (req.method === 'DELETE' && pathParts.length === 1) {
+      const id = pathParts[0];
+      if (!isValidId(id)) return send(res, 400, { success: false, error: 'Invalid ID' });
+
+      const deleted = await Tour.findByIdAndDelete(id);
+      if (!deleted) return send(res, 404, { success: false, error: 'Tour not found' });
+
+      return send(res, 200, { success: true, data: { message: 'Tour deleted' } });
+    }
+
+    // 3. POST /:id/clone
+    if (req.method === 'POST' && pathParts.length === 2 && pathParts[1] === 'clone') {
+      const id = pathParts[0];
+      if (!isValidId(id)) return send(res, 400, { success: false, error: 'Invalid ID' });
+
+      const original = await Tour.findById(id).lean();
+      if (!original) return send(res, 404, { success: false, error: 'Tour not found' });
+
+      // Create copy
+      const { _id, createdAt, updatedAt, __v, slug, title, ...rest } = original as any;
+      const copyData = {
+        ...rest,
+        title: `${title} (Copy)`,
+        slug: `${slug}-copy-${Date.now()}`,
+        status: 'draft'
+      };
+
+      const copy = await Tour.create(copyData);
+      return send(res, 201, { success: true, data: copy });
+    }
+
+    // -------------------
+    // Existing Handlers (Root /)
+    // -------------------
+
+    if (pathParts.length > 0) {
+      // If we have path parts but didn't match the specific routes above, it's a 404
+      return send(res, 404, { success: false, error: 'Route not found' });
+    }
+
+    // If not handled method (ROOT)
+    if (req.method !== 'GET' && req.method !== 'POST') {
+      res.setHeader('Allow', ['GET', 'POST']);
+      return send(res, 405, { success: false, error: `Method ${req.method} Not Allowed` });
+    }
   } catch (error: any) {
     console.error(`[ERROR in ${handlerName}]`, error);
     console.error(`[ERROR in ${handlerName}] Stack:`, error.stack);

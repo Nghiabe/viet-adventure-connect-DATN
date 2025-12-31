@@ -331,6 +331,8 @@ app.get('/api/hotels/:id', async (req, res) => {
       priceDisplay: `${hotel.price.toLocaleString('vi-VN')} ₫`,
       finalPriceDisplay: `${hotel.price.toLocaleString('vi-VN')} ₫`,
 
+      roomTypes: hotel.roomTypes || [],
+
       raw: hotel
     };
 
@@ -339,6 +341,63 @@ app.get('/api/hotels/:id', async (req, res) => {
   } catch (err) {
     console.error('[DETAIL] Error:', err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/hotels/:id/availability
+app.get('/api/hotels/:id/availability', async (req, res) => {
+  try {
+    const hotelId = req.params.id;
+    const { checkIn, checkOut } = req.query;
+
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({ success: false, error: 'Check-in and check-out dates are required' });
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    const { default: Booking } = await import('./models/Booking.js');
+
+    const hotel = await PartnerService.findById(hotelId);
+    if (!hotel || hotel.type !== 'hotel') {
+      return res.status(404).json({ success: false, error: 'Hotel not found' });
+    }
+
+    // Valid room types
+    const roomTypes = hotel.roomTypes || [];
+
+    // Find confirmed bookings that overlap with the requested dates
+    const existingBookings = await Booking.find({
+      partnerService: hotelId,
+      status: { $in: ['confirmed', 'pending', 'provisional'] },
+      $or: [
+        { checkInDate: { $lt: checkOutDate }, 'serviceInfo.checkOut': { $gt: checkInDate } }
+      ]
+    });
+
+    // Calculate availability per room type
+    const availability = roomTypes.map(room => {
+      const totalRooms = room.quantity || 5; // Default quantity if not set
+
+      // Count booked rooms of this type
+      const bookedCount = existingBookings.filter(b =>
+        (b.serviceInfo?.roomType === room.name)
+      ).length;
+
+      return {
+        name: room.name,
+        total: totalRooms,
+        booked: bookedCount,
+        available: Math.max(0, totalRooms - bookedCount)
+      };
+    });
+
+    return res.json({ success: true, data: availability });
+
+  } catch (err) {
+    console.error('Error checking hotel availability:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -431,6 +490,7 @@ app.get('/api/flights', async (req, res) => {
         duration: '2h 00m',
         price: f.price,
         type: 'Non-stop',
+        status: 'active',
         // Update mock logic: If strict stops filter exists, match it. Else random.
         stops: (() => {
           if (req.query.stops) {
@@ -462,6 +522,58 @@ app.get('/api/flights', async (req, res) => {
   } catch (err) {
     console.error('Error in /api/flights:', err);
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/tours/:id/availability
+app.get('/api/tours/:id/availability', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { date } = req.query;
+
+    if (!date) return res.status(400).json({ error: 'Missing date parameter' });
+
+    // Dynamic import to avoid top-level await in some environments if needed, but consistency with others
+    const { default: Tour } = await import('./models/Tour.js');
+    const { default: Booking } = await import('./models/Booking.js');
+
+    const tour = await Tour.findById(id);
+    if (!tour) return res.status(404).json({ error: 'Tour not found' });
+
+    // Calculate start and end of the requested date
+    const queryDate = new Date(date);
+    const startOfDay = new Date(queryDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(queryDate.setHours(23, 59, 59, 999));
+
+    // Find all active bookings for this tour on this date
+    // Note: checkInDate in Booking is defined. Ideally we should match exactly the date part.
+    // MongoDB date match can be tricky with timezones, so using a range is safer.
+    const bookings = await Booking.find({
+      tour: id,
+      status: { $nin: ['cancelled', 'rejected', 'failed'] },
+      checkInDate: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    });
+
+    const bookedCount = bookings.reduce((sum, b) => sum + (b.participants || 0), 0);
+    const maxGroupSize = tour.maxGroupSize || 0;
+    const available = Math.max(0, maxGroupSize - bookedCount);
+
+    return res.json({
+      success: true,
+      data: {
+        date: date,
+        maxGroupSize,
+        bookedCount,
+        available
+      }
+    });
+
+  } catch (err) {
+    console.error('Error checking tour availability:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -502,6 +614,77 @@ function createVietnameseRegex(keyword) {
   }
   return regexStr;
 }
+
+// GET /api/transport/:id/availability
+app.get('/api/transport/:id/availability', async (req, res) => {
+  try {
+    const transportId = req.params.id;
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({ success: false, error: 'Date is required' });
+    }
+
+    const { default: PartnerService } = await import('./models/PartnerService.js');
+    const { default: Booking } = await import('./models/Booking.js');
+
+    const pService = await PartnerService.findById(transportId);
+    if (!pService || !['flight', 'train', 'bus'].includes(pService.type)) {
+      return res.status(404).json({ success: false, error: 'Transport service not found' });
+    }
+
+    // Get ticket types
+    const ticketTypes = pService.ticketTypes || [];
+
+    // Find confirmed bookings for this date
+    // Note: checkInDate in Booking schema is used as the travel date
+    const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999);
+
+    const existingBookings = await Booking.find({
+      partnerService: transportId,
+      status: { $in: ['confirmed', 'pending', 'provisional'] },
+      checkInDate: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    // Calculate availability per ticket class
+    const availability = ticketTypes.map(ticket => {
+      const totalSeats = ticket.quantity || 50; // Default seats
+
+      // Sum participants for this ticket class
+      let bookedSeats = 0;
+      existingBookings.forEach(b => {
+        // serviceInfo.class stores the ticket name/class
+        if (b.serviceInfo?.class === ticket.name || b.serviceInfo?.class === ticket.class) {
+          bookedSeats += (b.participants || 1);
+        }
+      });
+
+      return {
+        name: ticket.name,
+        class: ticket.class,
+        _id: ticket._id,
+        total: totalSeats,
+        booked: bookedSeats,
+        available: Math.max(0, totalSeats - bookedSeats)
+      };
+    });
+
+    // Also calculate global availability if no ticket types
+    let globalAvailable = null;
+    if (ticketTypes.length === 0) {
+      const totalSeats = pService.quantity || 50;
+      const bookedSeats = existingBookings.reduce((sum, b) => sum + (b.participants || 1), 0);
+      globalAvailable = Math.max(0, totalSeats - bookedSeats);
+    }
+
+    return res.json({ success: true, data: { ticketTypes: availability, globalAvailable } });
+
+  } catch (err) {
+    console.error('Error checking transport availability:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // GET /api/transport (Generic search for Flight, Train, Bus)
 app.get('/api/transport', async (req, res) => {
@@ -588,6 +771,81 @@ app.get('/api/transport', async (req, res) => {
   } catch (err) {
     console.error('Error in /api/transport:', err);
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/transport/:id
+app.get('/api/transport/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'Missing id' });
+
+    const service = await PartnerService.findById(id);
+    if (!service || !['flight', 'train', 'bus'].includes(service.type)) {
+      return res.status(404).json({ error: "Transport service not found" });
+    }
+
+    const result = {
+      id: service._id,
+      operator: service.name,
+      type: service.type,
+      logo: service.image || (service.images && service.images[0]) || '',
+      images: service.images || [],
+      description: service.description,
+
+      // Route & Schedule
+      route: service.route,
+      departure: {
+        time: '08:00', // Mock if not in DB
+        station: service.route ? service.route.split('-')[0].trim() : 'Điểm đi'
+      },
+      arrival: {
+        time: '12:00', // Mock
+        station: service.route ? service.route.split('-')[1].trim() : 'Điểm đến'
+      },
+      duration: '4h 00m',
+
+      // Pricing & Tickets
+
+      ticketTypes: (() => {
+        if (service.ticketTypes && service.ticketTypes.length > 0) return service.ticketTypes;
+
+        // Fallback to roomTypes if ticketTypes is empty (backward compatibility)
+        if (service.roomTypes && service.roomTypes.length > 0) {
+          return service.roomTypes.map(r => ({
+            _id: r._id,
+            name: r.name,
+            price: r.price,
+            class: 'Standard',
+            description: r.description,
+            quantity: r.quantity,
+            amenities: r.amenities,
+            images: r.images
+          }));
+        }
+
+        // Default if no types defined
+        const defaultName = service.type === 'flight' ? 'Vé máy bay phổ thông' :
+          service.type === 'bus' ? 'Vé xe khách' : 'Vé phổ thông';
+
+        return [{
+          name: defaultName,
+          price: service.price,
+          class: 'Standard',
+          description: 'Vé tiêu chuẩn',
+          quantity: (service.quantity !== undefined && service.quantity !== null) ? service.quantity : 50
+        }];
+      })(),
+
+      amenities: service.facilities || [],
+      raw: service
+    };
+
+    return res.json({ success: true, data: result });
+
+  } catch (err) {
+    console.error('[Transport Detail] Error:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -833,8 +1091,8 @@ app.post('/api/bookings', async (req, res) => {
     }
 
     // Validation
-    if (!hotelId && !tourId && body.type !== 'flight') {
-      return res.status(400).json({ success: false, error: 'Missing service identifier (hotelId, tourId or type=flight)' });
+    if (!hotelId && !tourId && !['flight', 'train', 'bus'].includes(body.type)) {
+      return res.status(400).json({ success: false, error: 'Missing service identifier (hotelId, tourId or type=flight/train/bus)' });
     }
     if (!guests) return res.status(400).json({ success: false, error: 'Missing participants/guests count' });
 
@@ -892,25 +1150,49 @@ app.post('/api/bookings', async (req, res) => {
         checkInDate: checkinDate
       };
     }
-    // ----- FLIGHT LOGIC -----
-    else if (body.type === 'flight') {
+    // ----- TRANSPORT LOGIC (Flight/Train/Bus) -----
+    else if (['flight', 'train', 'bus'].includes(body.type)) {
+      // Try to find the PartnerService if a generic ID is provided as transportNumber
+      let serviceTitle = 'Vé di chuyển';
+      let serviceImage = '';
+      let linkedServiceId = null;
+
+      // If transportNumber looks like an ID, try to find it
+      if (body.transportNumber && body.transportNumber.match(/^[0-9a-fA-F]{24}$/)) {
+        const pService = await PartnerService.findById(body.transportNumber);
+        if (pService) {
+          serviceTitle = `${pService.name} (${body.transportNumber})`; // or use pService.operator
+          serviceImage = pService.image || (pService.images && pService.images[0]);
+          linkedServiceId = pService._id;
+        }
+      }
+
+      // Fallback title construction
+      if (!linkedServiceId) {
+        const typeName = body.type === 'flight' ? 'Chuyến bay' : body.type === 'train' ? 'Tàu' : 'Xe';
+        serviceTitle = body.airline ? `${body.airline} (${body.transportNumber})` : `${typeName} ${body.transportNumber || ''}`;
+      }
+
       newBookingData = {
         ...newBookingData,
-        type: 'flight',
+        type: body.type,
+        partnerService: linkedServiceId, // Link if found
         checkInDate: new Date(body.bookingDate || Date.now()),
         serviceInfo: {
-          title: body.airline ? `${body.airline} (${body.flightNumber})` : 'Vé máy bay',
+          title: serviceTitle,
           destination: body.destination?.city || 'Việt Nam',
           price: Number(body.unitPrice || 0),
-          image: body.airline === 'Vietnam Airlines' ? 'https://picsum.photos/seed/vna/120/120' :
-            body.airline === 'VietJet Air' ? 'https://picsum.photos/seed/vja/120/120' :
-              'https://picsum.photos/seed/flight-default/120/120',
-          // Store extra flight details
-          location: `${body.origin?.city} (${body.origin?.code}) - ${body.destination?.city} (${body.destination?.code})`,
+          image: serviceImage || (
+            body.type === 'flight' ? (body.airline === 'Vietnam Airlines' ? 'https://picsum.photos/seed/vna/120/120' : 'https://picsum.photos/seed/flight-default/120/120') :
+              body.type === 'train' ? 'https://picsum.photos/seed/train/120/120' :
+                'https://picsum.photos/seed/bus/120/120'
+          ),
+          // Store extra details
+          location: `${body.origin?.city || body.origin?.station || ''} - ${body.destination?.city || body.destination?.station || ''}`,
           duration: body.duration,
-          bookingDate: body.date // legacy
+          bookingDate: body.bookingDate,
+          class: body.class
         },
-        // Store flight specific data in a flexible way if schema allows, or reuse existing fields
         participants: guests,
         totalPrice: Number(body.totalPrice || 0)
       };
@@ -953,6 +1235,40 @@ app.post('/api/bookings', async (req, res) => {
       };
     }
 
+    // ----- INVENTORY UPDATE LOGIC -----
+    // FIXED: Do not decrement quantity permanently. Availability is now checked dynamically.
+    /*
+    // Decrement quantity for Transport services
+    if (['flight', 'train', 'bus'].includes(body.type) && newBookingData.partnerService) {
+       // ... logic removed ...
+    }
+    // Decrement quantity for Hotel services
+    else if (body.type === 'hotel' && newBookingData.partnerService) {
+       // ... logic removed ...
+    }
+    */
+    // Decrement quantity for Tour services
+    // Decrement quantity for Tour services
+    // FIXED: Do not decrement maxGroupSize permanently. Availability is now checked by date.
+    /*
+    else if (body.type === 'tour' && tourId) {
+      try {
+        const { default: Tour } = await import('./models/Tour.js');
+        const tour = await Tour.findById(tourId);
+        if (tour) {
+          const quantityToDeduct = guests;
+          const oldQty = tour.maxGroupSize || 0;
+          tour.maxGroupSize = Math.max(0, oldQty - quantityToDeduct);
+
+          await tour.save();
+          console.log(`[Inventory] Decremented ${quantityToDeduct} spots for Tour ${tour.title} (maxGroupSize: ${oldQty} -> ${tour.maxGroupSize})`);
+        }
+      } catch (err) {
+        console.error('[Inventory] Failed to update tour quantity:', err);
+      }
+    }
+    */
+
     const newBooking = new Booking(newBookingData);
     await newBooking.save();
 
@@ -990,5 +1306,3 @@ app.post('/api/bookings', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ API server listening on http://localhost:${PORT}`);
 });
-
-

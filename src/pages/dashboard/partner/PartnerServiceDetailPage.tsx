@@ -29,6 +29,7 @@ interface ServiceItem {
     route?: string;
     rating: number;
     status: 'active' | 'inactive';
+    quantity?: number; // Total quantity
     image: string;
     images?: string[];
     description?: string;
@@ -38,6 +39,7 @@ interface ServiceItem {
     roomTypes?: {
         name: string;
         price: number;
+        quantity?: number; // Added quantity
         description?: string;
         amenities?: string[];
         images?: string[];
@@ -135,6 +137,9 @@ export default function PartnerServiceDetailPage() {
                                         <MapPin className="h-4 w-4 mr-1.5" />
                                         {service.location || service.route || service.address || "Chưa cập nhật địa điểm"}
                                     </div>
+                                    <div className="flex items-center bg-green-500/20 backdrop-blur-md px-2 py-1 rounded-md border border-green-500/30 text-green-300 font-bold">
+                                        Còn {service.quantity || service.roomTypes?.reduce((acc, r) => acc + (r.quantity || 0), 0) || 0} {service.type === 'hotel' ? 'phòng' : 'chỗ'}
+                                    </div>
                                     <div className="uppercase text-xs font-bold tracking-widest bg-white/20 backdrop-blur-md px-2 py-1 rounded border border-white/10">
                                         {service.type}
                                     </div>
@@ -213,7 +218,12 @@ export default function PartnerServiceDetailPage() {
                                             <div className="flex-1 p-6 flex flex-col justify-between">
                                                 <div>
                                                     <div className="flex justify-between items-start mb-2">
-                                                        <h4 className="font-bold text-lg">{room.name}</h4>
+                                                        <div className="flex items-center gap-2">
+                                                            <h4 className="font-bold text-lg">{room.name}</h4>
+                                                            <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
+                                                                Còn {room.quantity || 0} phòng
+                                                            </Badge>
+                                                        </div>
                                                         <p className="text-xl font-bold text-blue-600">
                                                             {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(room.price)}
                                                         </p>

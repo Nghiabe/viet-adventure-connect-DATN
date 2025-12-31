@@ -1,0 +1,6 @@
+ID: 6954e6df8d2709cf59b55558
+Type: flight
+PARTNER_SERVICE: 6954e6958d2709cf59b5553a
+ServiceInfo Class: undefined
+CheckInDate: Wed Dec 31 2025 07:00:00 GMT+0700 (Giờ Đông Dương)
+Status: pending

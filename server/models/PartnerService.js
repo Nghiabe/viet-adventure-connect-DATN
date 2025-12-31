@@ -16,6 +16,9 @@ const PartnerServiceSchema = new mongoose.Schema({
     quantity: { type: Number, default: 0 }, // Total availability
 
     // Hotel Specifics
+    checkInTime: { type: String, default: '14:00' },
+    checkOutTime: { type: String, default: '12:00' },
+    maxGuests: { type: Number, default: 2 },
     facilities: [String],
     inclusions: [String],
     exclusions: [String],
@@ -23,6 +26,7 @@ const PartnerServiceSchema = new mongoose.Schema({
         name: String,
         price: Number,
         quantity: { type: Number, default: 5 }, // Added quantity field
+        maxGuests: { type: Number, default: 2 }, // Added maxGuests per room
         description: String,
         amenities: [String],
         images: [String]

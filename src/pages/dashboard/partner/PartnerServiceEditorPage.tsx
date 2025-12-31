@@ -35,6 +35,7 @@ interface ServiceItem {
         name: string;
         price: number;
         quantity?: number;
+        maxGuests?: number;
         description?: string;
         amenities?: string[];
         images?: string[];
@@ -69,7 +70,7 @@ export default function PartnerServiceEditorPage() {
     const [tempExclusion, setTempExclusion] = useState('');
 
     // Helper state for adding room types
-    const [newRoom, setNewRoom] = useState({ name: '', price: 0, quantity: 5, description: '' });
+    const [newRoom, setNewRoom] = useState({ name: '', price: 0, quantity: 5, maxGuests: 2, description: '' });
     const [editingRoomIndex, setEditingRoomIndex] = useState<number | null>(null);
 
     useEffect(() => {
@@ -182,7 +183,7 @@ export default function PartnerServiceEditorPage() {
                 // Ensure number types
                 price: Number(service.price),
                 rating: Number(service.rating || 0),
-                roomTypes: service.roomTypes.map(r => ({ ...r, price: Number(r.price), quantity: Number(r.quantity || 0) }))
+                roomTypes: service.roomTypes.map(r => ({ ...r, price: Number(r.price), quantity: Number(r.quantity || 0), maxGuests: Number(r.maxGuests || 2) }))
             };
 
             const endpoint = isNew ? '/partner/services' : `/partner/services/${id}`;
@@ -239,7 +240,7 @@ export default function PartnerServiceEditorPage() {
             }));
         }
 
-        setNewRoom({ name: '', price: 0, quantity: 5, description: '' });
+        setNewRoom({ name: '', price: 0, quantity: 5, maxGuests: 2, description: '' });
     };
 
     const handleEditRoom = (index: number) => {
@@ -248,6 +249,7 @@ export default function PartnerServiceEditorPage() {
             name: room.name,
             price: room.price,
             quantity: room.quantity || 5,
+            maxGuests: room.maxGuests || 2,
             description: room.description || ''
         });
         setEditingRoomIndex(index);
@@ -384,13 +386,27 @@ export default function PartnerServiceEditorPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-4 mt-2">
                                 <Input type="number" placeholder={service.type === 'hotel' ? "Số lượng phòng" : "Số lượng vé"} value={newRoom.quantity || ''} onChange={e => setNewRoom({ ...newRoom, quantity: Number(e.target.value) })} />
-                                <Input placeholder="Mô tả ngắn" value={newRoom.description} onChange={e => setNewRoom({ ...newRoom, description: e.target.value })} />
+                                {service.type === 'hotel' ? (
+                                    <Input
+                                        type="number"
+                                        placeholder="Số người tối đa (VD: 2)"
+                                        value={newRoom.maxGuests || ''}
+                                        onChange={e => setNewRoom({ ...newRoom, maxGuests: Number(e.target.value) })}
+                                    />
+                                ) : (
+                                    <Input placeholder="Mô tả ngắn" value={newRoom.description} onChange={e => setNewRoom({ ...newRoom, description: e.target.value })} />
+                                )}
                             </div>
+                            {service.type === 'hotel' && (
+                                <div className="mt-2">
+                                    <Input placeholder="Mô tả ngắn về loại phòng" value={newRoom.description} onChange={e => setNewRoom({ ...newRoom, description: e.target.value })} />
+                                </div>
+                            )}
                             <div className="flex gap-2">
                                 {editingRoomIndex !== null && (
                                     <Button type="button" variant="outline" onClick={() => {
                                         setEditingRoomIndex(null);
-                                        setNewRoom({ name: '', price: 0, quantity: 5, description: '' });
+                                        setNewRoom({ name: '', price: 0, quantity: 5, maxGuests: 2, description: '' });
                                     }} className="w-full">Hủy chỉnh sửa</Button>
                                 )}
                                 <Button type="button" variant={editingRoomIndex !== null ? "default" : "secondary"} onClick={addRoomType} className="w-full">
@@ -403,7 +419,11 @@ export default function PartnerServiceEditorPage() {
                             {service.roomTypes?.map((room, idx) => (
                                 <div key={idx} className="flex justify-between items-center p-3 border rounded-lg bg-card">
                                     <div>
-                                        <p className="font-medium">{room.name} <span className="text-xs font-normal text-muted-foreground ml-2">(SL: {room.quantity || 0})</span></p>
+                                        <p className="font-medium">
+                                            {room.name}
+                                            <span className="text-xs font-normal text-muted-foreground ml-2">(SL: {room.quantity || 0})</span>
+                                            {room.maxGuests && <span className="text-xs font-normal text-orange-600 ml-2">(Max: {room.maxGuests})</span>}
+                                        </p>
                                         <p className="text-sm text-muted-foreground">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(room.price)}</p>
 
                                     </div>

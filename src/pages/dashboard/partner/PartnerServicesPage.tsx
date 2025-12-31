@@ -50,10 +50,14 @@ interface ServiceItem {
     description?: string;
     inclusions?: string[];
     exclusions?: string[];
+    checkInTime?: string;
+    checkOutTime?: string;
+    maxGuests?: number;
     roomTypes?: {
         name: string;
         price: number;
         quantity?: number;
+        maxGuests?: number;
         description?: string;
     }[];
 }
@@ -79,6 +83,9 @@ export default function PartnerServicesPage() {
         description: '',
         inclusions: [],
         exclusions: [],
+        checkInTime: '14:00',
+        checkOutTime: '12:00',
+        maxGuests: 2,
         roomTypes: [],
         quantity: 0
     });
@@ -86,7 +93,7 @@ export default function PartnerServicesPage() {
     // Helper for array inputs (images, inclusions)
     const [tempImage, setTempImage] = useState('');
     const [tempInclusion, setTempInclusion] = useState('');
-    const [tempRoom, setTempRoom] = useState({ name: '', price: 0, quantity: 1 });
+    const [tempRoom, setTempRoom] = useState({ name: '', price: 0, quantity: 1, maxGuests: 2 });
     const [destinations, setDestinations] = useState<any[]>([]);
 
     useEffect(() => {
@@ -134,7 +141,7 @@ export default function PartnerServicesPage() {
         }
         if (field === 'roomTypes' && tempRoom.name && tempRoom.price) {
             setNewItem({ ...newItem, roomTypes: [...(newItem.roomTypes || []), { ...tempRoom }] });
-            setTempRoom({ name: '', price: 0, quantity: 1 });
+            setTempRoom({ name: '', price: 0, quantity: 1, maxGuests: 2 });
         }
     };
 
@@ -246,7 +253,23 @@ export default function PartnerServicesPage() {
                 toast.success('Thêm dịch vụ thành công');
                 setServices([res.data, ...services]);
                 setIsAddDialogOpen(false);
-                setNewItem({ name: '', price: 0, location: '', route: '', image: '' });
+                setNewItem({
+                    name: '',
+                    price: 0,
+                    location: '',
+                    address: '',
+                    route: '',
+                    image: '',
+                    images: [],
+                    description: '',
+                    inclusions: [],
+                    exclusions: [],
+                    roomTypes: [],
+                    quantity: 0,
+                    checkInTime: '14:00',
+                    checkOutTime: '12:00',
+                    maxGuests: 2
+                });
             } else {
                 toast.error(res.error || 'Có lỗi xảy ra');
             }
@@ -512,6 +535,27 @@ export default function PartnerServicesPage() {
                                             </div>
                                         </div>
 
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="checkIn">Giờ nhận phòng</Label>
+                                                <Input
+                                                    id="checkIn"
+                                                    type="time"
+                                                    value={newItem.checkInTime || '14:00'}
+                                                    onChange={(e) => setNewItem({ ...newItem, checkInTime: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="checkOut">Giờ trả phòng</Label>
+                                                <Input
+                                                    id="checkOut"
+                                                    type="time"
+                                                    value={newItem.checkOutTime || '12:00'}
+                                                    onChange={(e) => setNewItem({ ...newItem, checkOutTime: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+
                                         <div className="space-y-2">
                                             <Label>Tiện ích & Bao gồm</Label>
                                             <div className="flex gap-2">
@@ -601,7 +645,7 @@ export default function PartnerServicesPage() {
 
                                 <div className="bg-muted/30 rounded-xl p-4 border space-y-4">
                                     <div className="grid grid-cols-12 gap-3 items-end">
-                                        <div className="col-span-7 space-y-1.5">
+                                        <div className="col-span-12 md:col-span-5 space-y-1.5">
                                             <Label className="text-xs">{activeTab === 'hotel' ? 'Tên loại phòng' : 'Tên loại vé / ghế'}</Label>
                                             <Input
                                                 placeholder={activeTab === 'hotel' ? "VD: Deluxe King Room" : "VD: Vé Phổ Thông"}
@@ -610,7 +654,7 @@ export default function PartnerServicesPage() {
                                                 className="bg-background"
                                             />
                                         </div>
-                                        <div className="col-span-3 space-y-1.5">
+                                        <div className="col-span-4 md:col-span-3 space-y-1.5">
                                             <Label className="text-xs">Giá {activeTab === 'hotel' ? 'mỗi đêm' : 'mỗi vé'}</Label>
                                             <Input
                                                 type="number"
@@ -620,7 +664,21 @@ export default function PartnerServicesPage() {
                                                 className="bg-background"
                                             />
                                         </div>
-                                        <div className="col-span-1 space-y-1.5">
+                                        <div className="col-span-4 md:col-span-2 space-y-1.5">
+                                            <Label className="text-xs">{activeTab === 'hotel' ? 'Số người tối đa' : 'Hạng vé'}</Label>
+                                            <Input
+                                                type={activeTab === 'hotel' ? "number" : "text"}
+                                                placeholder={activeTab === 'hotel' ? "VD: 2" : "VD: VIP"}
+                                                min={1}
+                                                value={activeTab === 'hotel' ? (tempRoom.maxGuests || 2) : (tempRoom as any).class || ''}
+                                                onChange={(e) => activeTab === 'hotel'
+                                                    ? setTempRoom({ ...tempRoom, maxGuests: Number(e.target.value) })
+                                                    : setTempRoom({ ...tempRoom, ['class']: e.target.value } as any) // temporary hack for non-hotel types if needed, though we strictly support hotel maxGuests here
+                                                }
+                                                className="bg-background"
+                                            />
+                                        </div>
+                                        <div className="col-span-3 md:col-span-1 space-y-1.5">
                                             <Label className="text-xs">Số lượng</Label>
                                             <Input
                                                 type="number"
@@ -631,7 +689,7 @@ export default function PartnerServicesPage() {
                                                 className="bg-background px-2"
                                             />
                                         </div>
-                                        <div className="col-span-1">
+                                        <div className="col-span-1 md:col-span-1">
                                             <Button type="button" size="icon" className="w-full" onClick={() => addArrayItem('roomTypes')}>
                                                 <Plus className="h-4 w-4" />
                                             </Button>
@@ -652,6 +710,11 @@ export default function PartnerServicesPage() {
                                                             <span className="ml-2 text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded text-[10px]">
                                                                 SL: {room.quantity || 1}
                                                             </span>
+                                                            {room.maxGuests && (
+                                                                <span className="ml-2 text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded text-[10px]">
+                                                                    Max: {room.maxGuests} người
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -677,6 +740,6 @@ export default function PartnerServicesPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

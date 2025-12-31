@@ -33,6 +33,7 @@ interface JourneyItem {
   mainImage?: string;
   destination?: string;
   type?: string;
+  checkInDate?: string;
 }
 
 interface JourneyCardProps {
@@ -51,6 +52,19 @@ const JourneyCard = ({ journey }: JourneyCardProps) => {
     (journey.partnerService?.images && journey.partnerService.images[0]) ||
     'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=800&auto=format&fit=crop';
   const location = journey.destination || journey.tour?.destination?.name || (journey.type === 'hotel' ? 'Khách sạn' : 'Điểm đến khác');
+
+  // Time Logic
+  const checkInDate = journey.checkInDate ? new Date(journey.checkInDate) : new Date(journey.bookingDate); // Fallback to booking date if missing (unsafe but prevents crash)
+  const isPast = new Date() >= checkInDate;
+
+  // Cancellation Deadline: 24h before CheckIn
+  const cancelDeadline = new Date(checkInDate);
+  cancelDeadline.setDate(cancelDeadline.getDate() - 1);
+  const canCancel = new Date() < cancelDeadline;
+
+  // Review Eligibility: Trip Started OR Completed
+  // NOTE: User requested "After deadline, cancel becomes review".
+  const canReview = isPast || journey.status === 'completed';
 
   // Status Translation Helper
   const getStatusLabel = (s: string) => {
@@ -102,8 +116,10 @@ const JourneyCard = ({ journey }: JourneyCardProps) => {
             <div className="h-px bg-border w-full" />
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Ngày đặt:</span>
-              <span className="font-medium">{formatDate(journey.bookingDate)}</span>
+              <span className="text-muted-foreground">Khởi hành:</span>
+              <span className="font-medium text-primary">
+                {formatDate(journey.checkInDate || journey.bookingDate)}
+              </span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -114,12 +130,89 @@ const JourneyCard = ({ journey }: JourneyCardProps) => {
                 {formatCurrencyVND(journey.totalPrice)}
               </p>
             </div>
+
+            {/* Actions: Cancel (Before Deadline) */}
+            {['pending', 'confirmed'].includes(journey.status) && canCancel && (
+              <div onClick={(e) => e.preventDefault()}>
+                <div className="pt-2 border-t mt-2">
+                  <CancelButton id={journey._id} />
+                </div>
+              </div>
+            )}
+
+            {/* Actions: Review (After Trip Started or Completed) - IF NOT CANCELLED */}
+            {['confirmed', 'completed'].includes(journey.status) && canReview && (
+              <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <div className="pt-2 border-t mt-2">
+                  {(() => {
+                    // Safely get Tour ID
+                    const tourId = journey.tour?._id || (typeof journey.tour === 'string' ? journey.tour : null);
+
+                    // Only show Review button for Tours with valid ID
+                    if (tourId && (!journey.type || journey.type === 'tour')) {
+                      return (
+                        <Link to={`/experience/${tourId}?review=true`} className="w-full">
+                          <Button variant="outline" size="sm" className="w-full text-xs h-8 border-primary text-primary hover:bg-primary hover:text-white">
+                            Viết đánh giá
+                          </Button>
+                        </Link>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
     </Link>
   );
 };
+
+// Extracted for cleaner logic and to avoid Link click conflict
+import { Button } from "@/components/ui/button";
+import apiClient from "@/services/apiClient";
+import { toast } from "sonner";
+import { useState } from "react";
+
+const CancelButton = ({ id }: { id: string }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop Link navigation
+
+    if (!confirm('Bạn có chắc chắn muốn hủy đơn này không?')) return;
+
+    setLoading(true);
+    try {
+      const res = await apiClient.put(`/bookings/${id}/cancel`, {});
+      if ((res as any).success) {
+        toast.success('Hủy đơn thành công');
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        toast.error((res as any).error || 'Lỗi khi hủy đơn');
+      }
+    } catch (error) {
+      toast.error('Lỗi hệ thống');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Button
+      variant="destructive"
+      size="sm"
+      className="w-full text-xs h-8"
+      onClick={handleCancel}
+      disabled={loading}
+    >
+      {loading ? 'Đang hủy...' : 'Hủy đơn'}
+    </Button>
+  )
+}
 
 export default JourneyCard;
 

@@ -27,6 +27,7 @@ export interface PreBookingDetails {
   transportNumber?: string; // generic for train/bus
   origin?: { code?: string; city?: string; station?: string; time: string };
   destination?: { code?: string; city?: string; station?: string; time: string };
+  quantity?: number;
   class?: string;
   stops?: number;
 }

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 import { GalleryUploader } from '@/components/ui/gallery-uploader';
+import { Calendar } from '@/components/ui/calendar';
 import apiClient from '@/services/apiClient';
 
 type DestinationOption = { _id: string; name: string; slug?: string };
@@ -38,7 +39,8 @@ export default function PartnerTourEditorPage() {
         destination: '', // legacy single
         mainImage: undefined,
         maxGroupSize: 0,
-        quantity: 20
+        quantity: 20,
+        start_dates: [] // New field
     });
 
     // ------------------ ensure initial one empty destination row for UX ------------------
@@ -85,11 +87,16 @@ export default function PartnerTourEditorPage() {
                             _id: it._id,
                         })) : [];
 
+                        // Parse dates securely
+                        const tAny = t as any;
+                        const loadedDates = Array.isArray(tAny.start_dates) ? tAny.start_dates.map((d: string) => new Date(d)) : [];
+
                         setDoc({
                             ...t,
                             destinations: uiDestinations,
                             itinerary: safeItinerary,
                             destination: t.destination?._id || t.destination || (uiDestinations[0]?.id || ''),
+                            start_dates: loadedDates
                         });
                     } else {
                         toast.error('Không tìm thấy tour');
@@ -169,6 +176,14 @@ export default function PartnerTourEditorPage() {
             if (!hasAnyDest) nextErr.destination = 'Vui lòng chọn ít nhất 1 điểm đến';
             const badIt = (Array.isArray(doc.itinerary) && doc.itinerary.some((it: any) => !it.description || String(it.description).trim().length === 0));
             if (badIt) nextErr.itinerary = 'Mỗi ngày trong lịch trình phải có mô tả (description).';
+
+            // Validate start_dates
+            if (!doc.start_dates || doc.start_dates.length === 0) {
+                // For stricter validation:
+                // nextErr.dates = 'Vui lòng chọn ít nhất 1 ngày khởi hành';
+                // But kept optional for legacy compatibility if needed, or enforce:
+                // nextErr.dates = 'Chọn ngày khởi hành (quan trọng)';
+            }
         }
         setErrors(nextErr);
         return Object.keys(nextErr).length === 0;
@@ -192,7 +207,7 @@ export default function PartnerTourEditorPage() {
                 description: doc.description,
                 duration: doc.duration,
                 price: typeof doc.price === 'string' ? Number(doc.price) : doc.price,
-                status: mode === 'publish' ? 'published' : doc.status || 'draft',
+                status: mode === 'publish' ? 'published' : doc.status || 'draft', // Backend will intercept 'published' -> 'pending' for partners
                 inclusions: Array.isArray(doc.inclusions) ? doc.inclusions : [],
                 exclusions: Array.isArray(doc.exclusions) ? doc.exclusions : [],
                 itinerary: safeItinerary,
@@ -200,6 +215,7 @@ export default function PartnerTourEditorPage() {
                 mainImage: doc.mainImage ? doc.mainImage : undefined,
                 maxGroupSize: typeof doc.maxGroupSize === 'string' ? Number(doc.maxGroupSize) : doc.maxGroupSize,
                 quantity: typeof doc.quantity === 'string' ? Number(doc.quantity) : doc.quantity,
+                start_dates: doc.start_dates // Send dates
             };
 
             // Build destinations array
@@ -229,7 +245,11 @@ export default function PartnerTourEditorPage() {
             }
 
             if (response.success) {
-                toast.success(mode === 'publish' ? 'Đã xuất bản' : 'Đã lưu nháp');
+                if (mode === 'publish') {
+                    toast.success('Đã gửi yêu cầu duyệt tour. Tour sẽ hiển thị khi được Admin duyệt.');
+                } else {
+                    toast.success('Đã lưu nháp');
+                }
                 navigate('/dashboard/tours');
             } else {
                 toast.error(response.error || 'Lỗi khi lưu tour');
@@ -251,7 +271,7 @@ export default function PartnerTourEditorPage() {
                 <div className="font-semibold text-lg">{isNew ? 'Tạo tour mới' : `Chỉnh sửa: ${doc.title}`}</div>
                 <div className="ml-auto" />
                 <Button variant="secondary" onClick={() => save('draft')} disabled={saving}>Lưu nháp</Button>
-                <Button onClick={() => save('publish')} disabled={saving}>Xuất bản</Button>
+                <Button onClick={() => save('publish')} disabled={saving} className="bg-yellow-600 hover:bg-yellow-700">Gửi duyệt</Button>
             </div>
 
             <Tabs value={tab} onValueChange={setTab}>
@@ -267,6 +287,7 @@ export default function PartnerTourEditorPage() {
                 <TabsContent value="general">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                         <Card className="p-4 space-y-3">
+                            {/* ... Fields ... */}
                             <div>
                                 <div className="text-sm text-secondary-foreground">Tiêu đề</div>
                                 <Input value={doc.title} onChange={(e) => setDoc({ ...doc, title: e.target.value })} />
@@ -409,27 +430,55 @@ export default function PartnerTourEditorPage() {
                 {/* Pricing */}
                 <TabsContent value="pricing">
                     <Card className="p-4 mt-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <div className="text-sm text-secondary-foreground">Giá (₫)</div>
-                                <Input type="number" value={doc.price} onChange={(e) => setDoc({ ...doc, price: Number(e.target.value) })} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="text-sm text-secondary-foreground">Giá (₫)</div>
+                                    <Input type="number" value={doc.price} onChange={(e) => setDoc({ ...doc, price: Number(e.target.value) })} />
+                                </div>
+                                <div className="flex gap-4">
+                                    <div className="flex-1">
+                                        <div className="text-sm text-secondary-foreground" title="Số khách tối đa mỗi lần tổ chức">Khách/Tour (Max)</div>
+                                        <Input type="number" value={doc.maxGroupSize || 0} onChange={(e) => setDoc({ ...doc, maxGroupSize: Number(e.target.value) })} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-sm text-secondary-foreground text-muted-foreground" title="Legacy field">Tổng Inventory</div>
+                                        <Input type="number" value={doc.quantity || 20} onChange={(e) => setDoc({ ...doc, quantity: Number(e.target.value) })} disabled className="bg-muted" />
+                                    </div>
+                                </div>
+
+                                <div className="border border-orange-200 bg-orange-50 dark:bg-orange-950/20 p-3 rounded text-sm text-orange-700 dark:text-orange-300">
+                                    <span className="font-semibold">Lưu ý:</span> Hệ thống sẽ tự động chặn đặt chỗ khi số khách vượt quá "Khách/Tour (Max)" trong một ngày cụ thể.
+                                </div>
                             </div>
-                            <div>
-                                <div className="text-sm text-secondary-foreground">Số lượng vé còn</div>
-                                <Input type="number" value={doc.maxGroupSize || 0} onChange={(e) => setDoc({ ...doc, maxGroupSize: Number(e.target.value) })} />
-                            </div>
-                            <div>
-                                <div className="text-sm text-secondary-foreground">Tổng số vé / chỗ</div>
-                                <Input type="number" value={doc.quantity || 20} onChange={(e) => setDoc({ ...doc, quantity: Number(e.target.value) })} />
+
+                            {/* Start Dates Selector */}
+                            <div className="border rounded-lg p-4 bg-background">
+                                <div className="text-sm font-semibold mb-2">Lịch khởi hành (Start Dates)</div>
+                                <div className="text-xs text-muted-foreground mb-2">Chọn những ngày tour sẽ được tổ chức.</div>
+                                <div className="flex justify-center">
+                                    <Calendar
+                                        mode="multiple"
+                                        selected={doc.start_dates ? doc.start_dates.map((d: any) => new Date(d)) : []}
+                                        onSelect={(dates) => setDoc({ ...doc, start_dates: dates })}
+                                        className="rounded-md border shadow-sm bg-white dark:bg-slate-950"
+                                    />
+                                </div>
+                                <div className="text-xs text-right mt-2 text-muted-foreground">
+                                    Đã chọn: <span className="font-semibold text-primary">{doc.start_dates?.length || 0}</span> ngày
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <div className="text-sm text-secondary-foreground">Bao gồm</div>
-                            <Textarea value={(doc.inclusions || []).join('\n')} onChange={(e) => setDoc({ ...doc, inclusions: e.target.value.split('\n').filter(Boolean) })} rows={4} />
-                        </div>
-                        <div>
-                            <div className="text-sm text-secondary-foreground">Không bao gồm</div>
-                            <Textarea value={(doc.exclusions || []).join('\n')} onChange={(e) => setDoc({ ...doc, exclusions: e.target.value.split('\n').filter(Boolean) })} rows={4} />
+
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                            <div>
+                                <div className="text-sm text-secondary-foreground">Bao gồm</div>
+                                <Textarea value={(doc.inclusions || []).join('\n')} onChange={(e) => setDoc({ ...doc, inclusions: e.target.value.split('\n').filter(Boolean) })} rows={4} />
+                            </div>
+                            <div>
+                                <div className="text-sm text-secondary-foreground">Không bao gồm</div>
+                                <Textarea value={(doc.exclusions || []).join('\n')} onChange={(e) => setDoc({ ...doc, exclusions: e.target.value.split('\n').filter(Boolean) })} rows={4} />
+                            </div>
                         </div>
                     </Card>
                 </TabsContent>

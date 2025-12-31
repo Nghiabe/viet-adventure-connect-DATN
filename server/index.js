@@ -16,6 +16,8 @@ import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import communityRouter from './routes/community.js';
 import chatRouter from './routes/chat.js';
+import reviewsRouter from './routes/reviews.js';  // Import Review Router
+import bookingRouter from './routes/bookings.js'; // Import Booking Router
 import PartnerService from './models/PartnerService.js';
 import { requireAuth } from './middleware/auth.js';
 
@@ -36,9 +38,11 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api/partner', partnerRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/upload', uploadRouter);
-app.use('/api/upload', uploadRouter);
+// app.use('/api/upload', uploadRouter); // Duplicate removed
 app.use('/api/auth', authRouter);
 app.use('/api/community', communityRouter);
+app.use('/api/reviews', reviewsRouter); // Mount Reviews Route
+app.use('/api/bookings', bookingRouter); // Mount Booking Actions (Cancel, etc)
 
 // Specific route for Story creation directly under /api because frontend calls /api/stories
 // We can alias it or update frontend. The frontend calls apiClient.post('/stories', ...)
@@ -323,6 +327,12 @@ app.get('/api/hotels/:id', async (req, res) => {
       reviewCount: 0,
       amenities: hotel.facilities || [],
       description: hotel.description,
+
+      // New fields
+      checkInTime: hotel.checkInTime || '14:00',
+      checkOutTime: hotel.checkOutTime || '12:00',
+      maxGuests: hotel.maxGuests || 2,
+
       images: hotel.images && hotel.images.length ? hotel.images.map(url => ({ url })) : [{ url: hotel.image }],
 
       // Pricing
@@ -454,6 +464,7 @@ app.get('/api/flights', async (req, res) => {
       .limit(PAGE_SIZE);
 
     // Map to IFlight-like structure
+    // Forced reload for model updates
     const flights = flightsDb.map(f => {
       // Try to parse route "Code - Code" or "City - City"
       // Fallback mock data if parsing fails
@@ -633,8 +644,17 @@ app.get('/api/transport/:id/availability', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Transport service not found' });
     }
 
-    // Get ticket types
-    const ticketTypes = pService.ticketTypes || [];
+    // Get ticket types - Fallback to roomTypes for backward compatibility/flexibility
+    let ticketTypes = pService.ticketTypes || [];
+    if (ticketTypes.length === 0 && pService.roomTypes && pService.roomTypes.length > 0) {
+      ticketTypes = pService.roomTypes.map(r => ({
+        name: r.name,
+        price: r.price,
+        quantity: r.quantity,
+        class: 'Standard',
+        _id: r._id
+      }));
+    }
 
     // Find confirmed bookings for this date
     // Note: checkInDate in Booking schema is used as the travel date
@@ -676,6 +696,17 @@ app.get('/api/transport/:id/availability', async (req, res) => {
       const totalSeats = pService.quantity || 50;
       const bookedSeats = existingBookings.reduce((sum, b) => sum + (b.participants || 1), 0);
       globalAvailable = Math.max(0, totalSeats - bookedSeats);
+
+      // Synthesize a virtual ticket type to match GET /api/transport/:id behavior
+      const defaultName = pService.type === 'flight' ? 'Vé máy bay phổ thông' :
+        pService.type === 'bus' ? 'Vé xe khách' : 'Vé phổ thông';
+
+      availability.push({
+        name: defaultName,
+        total: totalSeats,
+        booked: bookedSeats,
+        available: globalAvailable
+      });
     }
 
     return res.json({ success: true, data: { ticketTypes: availability, globalAvailable } });
@@ -907,6 +938,7 @@ app.get('/api/users/profile', async (req, res) => {
         _id: b._id,
         tourTitle: b.serviceInfo?.title || b.tour?.title || b.partnerService?.name || 'Chuyến đi',
         bookingDate: b.bookingDate,
+        checkInDate: b.checkInDate, // Added checkInDate for frontend logic
         status: b.status,
         totalPrice: b.totalPrice,
         participants: b.participants,
@@ -1212,13 +1244,41 @@ app.post('/api/bookings', async (req, res) => {
 
       try {
         const { default: Tour } = await import('./models/Tour.js');
+        const { default: Booking } = await import('./models/Booking.js'); // Ensure Booking is linked
+
         const tour = await Tour.findById(tourId);
         if (tour) {
           tourTitle = tour.title;
           tourImage = tour.mainImage;
           tourDestination = tour.destination?.name || tour.location || 'Việt Nam';
+
+          // --- CRITICAL FIX: Overbooking Protection ---
+          // 1. Determine Start/End of the requested date
+          const requestedDate = new Date(checkin || Date.now());
+          const startOfDay = new Date(requestedDate); startOfDay.setHours(0, 0, 0, 0);
+          const endOfDay = new Date(requestedDate); endOfDay.setHours(23, 59, 59, 999);
+
+          // 2. Count existing participants for this Tour on this Date
+          const existingBookings = await Booking.find({
+            tour: tourId,
+            status: { $in: ['confirmed', 'pending', 'provisional'] }, // Count pending to avoid race conditions
+            checkInDate: { $gte: startOfDay, $lte: endOfDay }
+          });
+
+          const currentPax = existingBookings.reduce((sum, b) => sum + (b.participants || 0), 0);
+          const groupLimit = tour.maxGroupSize || 999;
+          const newPax = Number(guests || 1);
+
+          if (currentPax + newPax > groupLimit) {
+            return res.status(400).json({
+              success: false,
+              error: `Rất tiếc, ngày này chỉ còn ${Math.max(0, groupLimit - currentPax)} chỗ trống (Bạn đặt ${newPax}).`
+            });
+          }
+          // ------------------------------------------
+
         }
-      } catch (e) { console.warn('Tour model verify failed', e); }
+      } catch (e) { console.warn('Tour verification/availability check failed', e); }
 
       newBookingData = {
         ...newBookingData,

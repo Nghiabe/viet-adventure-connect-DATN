@@ -318,6 +318,19 @@ router.post('/tours', requireAuth, async (req, res) => {
         // Basic validation
         if (!body.title) return res.status(400).json({ success: false, error: 'Title is required' });
 
+        // Force status to 'pending' if user tries to publish directly
+        if (body.status === 'published') {
+            body.status = 'pending';
+        }
+
+        // Validate start_dates if status is not draft
+        if (body.status !== 'draft') {
+            if (!body.start_dates || !Array.isArray(body.start_dates) || body.start_dates.length === 0) {
+                // For MVP, we might allow it but it's better to enforce for specific availability
+                // return res.status(400).json({ success: false, error: 'Vui lòng chọn ít nhất 1 ngày khởi hành trước khi gửi duyệt' });
+            }
+        }
+
         // Handle legacy 'destination' field if not present in body but 'destinations' is
         if (!body.destination && body.destinations && body.destinations.length > 0) {
             body.destination = body.destinations[0].destinationId;
@@ -349,6 +362,24 @@ router.put('/tours/:id', requireAuth, async (req, res) => {
         const existingTour = await Tour.findOne({ _id: id, owner: userId });
         if (!existingTour) {
             return res.status(404).json({ success: false, error: 'Tour not found or unauthorized' });
+        }
+
+        // Enforce approval workflow
+        if (body.status === 'published') {
+            // Only Admin can set to published directly. Partner edits -> back to pending/draft?
+            // If it was already published, and they edit it, does it go back to pending?
+            // For safety: Yes, critical changes should re-trigger approval.
+            // But if it's just a minor fix? Let's assume ANY 'publish' intent goes to 'pending' for now.
+            // Or if existing is 'published' and they just save, keep it?
+            // Strict mode: Change -> Pending.
+            body.status = 'pending';
+        }
+
+        // Validate start_dates if submitting for review
+        if (body.status === 'pending') {
+            if (!body.start_dates || !Array.isArray(body.start_dates) || body.start_dates.length === 0) {
+                // return res.status(400).json({ success: false, error: 'Vui lòng chọn ít nhất 1 ngày khởi hành trước khi gửi duyệt' });
+            }
         }
 
         const updated = await Tour.findByIdAndUpdate(id, body, { new: true });
@@ -1018,6 +1049,7 @@ router.put('/services/:id', requireAuth, async (req, res) => {
         const { id } = req.params;
         const userId = req.user.userId;
         const updates = req.body;
+        console.log('Received service update:', JSON.stringify(updates, null, 2));
 
         const service = await PartnerService.findOneAndUpdate(
             { _id: id, owner: userId },

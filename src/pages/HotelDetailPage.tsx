@@ -92,6 +92,7 @@ const HotelDetailPage: React.FC = () => {
   const [checkOut, setCheckOut] = useState<string>(preCheckOut || defaultCheckout);
 
   const [guests, setGuests] = useState<number>(2);
+  const [roomQuantity, setRoomQuantity] = useState<number>(1);
   const [bedType, setBedType] = useState<string>('Tiêu chuẩn');
   const [isBooking, setIsBooking] = useState(false);
 
@@ -132,9 +133,10 @@ const HotelDetailPage: React.FC = () => {
 
   // Auto-select first room type when data loads
   useEffect(() => {
-    const r = hotel?.raw ? safeParseJson(hotel.raw) : hotel?.raw;
-    if (r?.roomTypes && Array.isArray(r.roomTypes) && r.roomTypes.length > 0) {
-      setBedType(r.roomTypes[0].name);
+    // Priority: hotel.roomTypes (direct DB) -> hotel.raw.roomTypes (legacy/search)
+    const list = hotel?.roomTypes || (hotel?.raw ? safeParseJson(hotel.raw)?.roomTypes : null) || [];
+    if (Array.isArray(list) && list.length > 0) {
+      setBedType(list[0].name);
     }
   }, [hotel]);
 
@@ -190,8 +192,21 @@ const HotelDetailPage: React.FC = () => {
   const locationText = hotel?.location ?? raw?.address ?? raw?.display_location ?? 'Chưa có địa chỉ';
   const rating = hotel?.rating ?? raw?.rating?.score ?? null;
   const reviewCount = hotel?.reviewCount ?? (raw?.rating?.review_count ?? 0);
+  const selectedRoomConfig = useMemo(() => {
+    const list = hotel?.roomTypes || raw?.roomTypes || [];
+    return list.find((r: any) => r.name === bedType) || {};
+  }, [hotel, raw, bedType]);
+
   const unitPrice = hotel?.priceVndNumber ?? null; // numeric VND price per night
   const priceDisplay = hotel?.priceVndDisplay ?? hotel?.finalPriceDisplay ?? hotel?.priceDisplay ?? 'Liên hệ';
+
+  // New fields
+  const checkInTime = hotel?.checkInTime || raw?.checkInTime || '14:00';
+  const checkOutTime = hotel?.checkOutTime || raw?.checkOutTime || '12:00';
+
+  // Calculate max guests based on selected room, fallback to hotel default
+  const maxGuestsPerRoom = selectedRoomConfig.maxGuests || hotel?.maxGuests || raw?.maxGuests || 2;
+  const totalMaxGuests = maxGuestsPerRoom * roomQuantity;
 
   // amenities
   const amenities: string[] = useMemo(() => {
@@ -223,7 +238,7 @@ const HotelDetailPage: React.FC = () => {
     return unitPrice;
   }, [raw, bedType, unitPrice]);
 
-  const effectiveTotalPrice = (effectiveUnitPrice != null && nightsValid) ? effectiveUnitPrice * nights : null;
+  const effectiveTotalPrice = (effectiveUnitPrice != null && nightsValid) ? effectiveUnitPrice * nights * roomQuantity : null;
 
   // ensure checkout min updates when checkin changes
   useEffect(() => {
@@ -259,16 +274,16 @@ const HotelDetailPage: React.FC = () => {
     // Validation: Check room availability from API if possible
     const currentRoomAvailability = roomAvailability.find(r => r.name === bedType);
     if (currentRoomAvailability) {
-      if (currentRoomAvailability.available <= 0) {
-        toast({ title: 'Loại phòng này đã hết trong khoảng thời gian chọn', variant: 'destructive' });
+      if (currentRoomAvailability.available < roomQuantity) {
+        toast({ title: `Chỉ còn ${currentRoomAvailability.available} phòng trống loại này`, variant: 'destructive' });
         return;
       }
     } else {
       // Fallback to static check if API data missing (should rare)
       const roomList = hotel?.roomTypes && hotel.roomTypes.length > 0 ? hotel.roomTypes : (raw?.roomTypes || []);
       const selectedRoom = roomList.find((r: any) => r.name === bedType);
-      if (selectedRoom && selectedRoom.quantity !== undefined && selectedRoom.quantity <= 0) {
-        toast({ title: 'Loại phòng này đã hết', variant: 'destructive' });
+      if (selectedRoom && selectedRoom.quantity !== undefined && selectedRoom.quantity < roomQuantity) {
+        toast({ title: `Chỉ còn ${selectedRoom.quantity} phòng trống loại này`, variant: 'destructive' });
         return;
       }
     }
@@ -283,6 +298,7 @@ const HotelDetailPage: React.FC = () => {
       checkOut,
       nights,
       bedType,
+      quantity: roomQuantity,
       participantsTotal: guests,
       unitPrice: effectiveUnitPrice ?? 0,
       clientComputedTotal: effectiveTotalPrice ?? 0,
@@ -373,6 +389,21 @@ const HotelDetailPage: React.FC = () => {
                   <div className="text-right">
                     <div className="text-xl font-bold text-primary">{priceDisplay}</div>
                     <div className="text-sm text-muted-foreground">Giá có thể thay đổi theo ngày</div>
+
+                    <div className="mt-4 p-3 bg-muted/40 rounded-lg text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nhận phòng:</span>
+                        <span className="font-medium">{checkInTime}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Trả phòng:</span>
+                        <span className="font-medium">{checkOutTime}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Sức chứa:</span>
+                        <span className="font-medium">Tối đa {maxGuestsPerRoom} người / phòng</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -439,12 +470,12 @@ const HotelDetailPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Nhận phòng</label>
+                <label className="text-sm font-medium">Nhận phòng <span className="text-xs text-muted-foreground font-normal">(Sau {checkInTime})</span></label>
                 <div className="mt-1">
                   <Input type="date" value={checkIn} min={todayStr} onChange={(e) => setCheckIn(e.target.value)} />
                 </div>
 
-                <label className="text-sm font-medium mt-2">Trả phòng</label>
+                <label className="text-sm font-medium mt-2">Trả phòng <span className="text-xs text-muted-foreground font-normal">(Trước {checkOutTime})</span></label>
                 <div className="mt-1">
                   {/* checkout min = checkIn + 1 */}
                   <Input
@@ -461,9 +492,16 @@ const HotelDetailPage: React.FC = () => {
 
                 <div className="flex gap-2 mt-2">
                   <div className="flex-1">
-                    <label className="text-sm font-medium">Khách</label>
-                    <Input type="number" min={1} value={guests} onChange={(e) => setGuests(Math.max(1, Number(e.target.value || 1)))} />
+                    <label className="text-sm font-medium">Số phòng</label>
+                    <Input type="number" min={1} max={10} value={roomQuantity} onChange={(e) => setRoomQuantity(Math.max(1, Number(e.target.value || 1)))} />
                   </div>
+                  <div className="flex-1">
+                    <label className="text-sm font-medium">Khách <span className="text-xs text-muted-foreground font-normal">(Max {totalMaxGuests})</span></label>
+                    <Input type="number" min={1} max={totalMaxGuests} value={guests} onChange={(e) => setGuests(Math.min(totalMaxGuests, Math.max(1, Number(e.target.value || 1))))} />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-2">
                   <div className="flex-1">
                     <label className="text-sm font-medium">Loại phòng/giường</label>
                     <select
@@ -482,7 +520,8 @@ const HotelDetailPage: React.FC = () => {
                         return (
                           <option key={idx} value={rt.name} disabled={isSoldOut}>
                             {rt.name} - {formatPrice(rt.price)}
-                            {isSoldOut ? ' (Hết phòng)' : (qty !== undefined ? ` (Còn ${qty} phòng)` : '')}
+                            {isSoldOut ? ' (Hết phòng)' : ''}
+                            {rt.maxGuests ? ` - Max ${rt.maxGuests} người` : ''}
                           </option>
                         );
                       })}

@@ -28,6 +28,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '@/services/apiClient';
 import { useAuth } from '@/context/AuthContext';
+import ReviewForm from '@/components/reviews/ReviewForm';
 
 // Star Rating Component
 const StarRating = ({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'lg' }) => {
@@ -63,8 +64,8 @@ const ExperienceDetail = () => {
   const [availability, setAvailability] = useState<{ available: number, max: number, booked: number } | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
-  const tour = data?.tour;
-  const reviews = data?.reviews || [];
+  const tour = (data as any)?.tour;
+  const reviews = (data as any)?.reviews || [];
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -132,6 +133,25 @@ const ExperienceDetail = () => {
 
     checkAvailability();
   }, [id, selectedDate, toast]);
+
+  // Check Review Eligibility
+  const [canReview, setCanReview] = useState(false);
+  useEffect(() => {
+    if (user && id) {
+      apiClient.get<any>(`/reviews/check/${id}`).then(res => {
+        if (res.success && res.data && res.data.canReview) {
+          setCanReview(true);
+        } else {
+          setCanReview(false);
+        }
+      }).catch(err => {
+        console.error("Error checking review eligibility", err);
+        setCanReview(false);
+      });
+    } else {
+      setCanReview(false);
+    }
+  }, [user, id]);
 
   const price = Number(tour?.price ?? 0);
   const totalPrice = price * adults + (price * 0.7 * children);
@@ -291,7 +311,7 @@ const ExperienceDetail = () => {
           <div className="bg-white border-b py-3">
             <div className="container mx-auto px-4">
               <div className="flex gap-2 overflow-x-auto">
-                {images.slice(0, 8).map((img, idx) => (
+                {images.slice(0, 8).map((img: any, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIndex(idx)}
@@ -522,9 +542,25 @@ const ExperienceDetail = () => {
               )}
 
               {/* Reviews */}
-              {reviews.length > 0 && (
-                <div>
-                  <h3 className="text-xl font-bold mb-4">Đánh giá của khách hàng</h3>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold">Đánh giá của khách hàng</h3>
+                </div>
+
+                {/* Review Form - Show only if eligible (booked & date passed & not reviewed) */}
+                {user && canReview && (
+                  <div className="mb-8 p-4 bg-gray-50 border border-blue-100 rounded-xl relative">
+                    <div className="absolute top-0 right-0 p-2">
+                      <span className="text-[10px] uppercase font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Bạn đã tham gia tour này</span>
+                    </div>
+                    <ReviewForm tourId={id!} onSuccess={() => {
+                      refetch(); // Reload reviews
+                      setCanReview(false); // Hide form after success
+                    }} />
+                  </div>
+                )}
+
+                {reviews.length > 0 ? (
                   <div className="space-y-4">
                     {reviews.map((r: any) => (
                       <div key={r._id} className="p-4 bg-white rounded-xl border shadow-sm">
@@ -549,8 +585,10 @@ const ExperienceDetail = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-gray-500 italic">Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá!</p>
+                )}
+              </div>
             </div>
 
             {/* Right: Booking Box */}

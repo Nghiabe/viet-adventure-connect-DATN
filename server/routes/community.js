@@ -148,7 +148,7 @@ router.post('/stories', requireAuth, async (req, res) => {
             tags: Array.isArray(tags) ? tags : [],
             coverImage,
             author: req.user.userId, // from requireAuth middleware
-            status: 'published' // Or 'pending' if you want moderation
+            status: 'pending' // Enforce moderation
         });
 
         await newStory.save();

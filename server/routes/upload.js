@@ -10,8 +10,8 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure uploads directory exists
-const uploadDir = path.join(process.cwd(), 'uploads');
+// Ensure uploads directory exists (Robust path resolution)
+const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -31,11 +31,19 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only images are allowed'));
+        // Strict MIME type check
+        if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Only images are allowed'));
         }
+
+        // Strict Extension check
+        const ext = path.extname(file.originalname).toLowerCase();
+        const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+        if (!allowedExts.includes(ext)) {
+            return cb(new Error('Invalid file extension'));
+        }
+
+        cb(null, true);
     }
 });
 

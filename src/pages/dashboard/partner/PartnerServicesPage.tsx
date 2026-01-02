@@ -49,6 +49,8 @@ interface ServiceItem {
     images?: string[]; // Gallery
     description?: string;
     inclusions?: string[];
+    departureTimes?: string[]; // Added
+    duration?: string;
     exclusions?: string[];
     checkInTime?: string;
     checkOutTime?: string;
@@ -82,6 +84,8 @@ export default function PartnerServicesPage() {
         images: [],
         description: '',
         inclusions: [],
+        departureTimes: [],
+        duration: '2h 00m',
         exclusions: [],
         checkInTime: '14:00',
         checkOutTime: '12:00',
@@ -263,6 +267,7 @@ export default function PartnerServicesPage() {
                     images: [],
                     description: '',
                     inclusions: [],
+                    departureTimes: [],
                     exclusions: [],
                     roomTypes: [],
                     quantity: 0,
@@ -636,6 +641,53 @@ export default function PartnerServicesPage() {
                                         <p className="text-xs text-red-500">Vui lòng chọn cả điểm đi và điểm đến</p>
                                     )}
                                     <p className="text-xs text-muted-foreground">Chọn điểm đi và điểm đến từ danh sách có sẵn.</p>
+                                </div>
+                            )}
+
+                            {/* Departure Times for Transport */}
+                            {activeTab !== 'hotel' && (
+                                <div className="border-t pt-4">
+                                    <h3 className="text-sm font-medium mb-4 text-muted-foreground uppercase tracking-wider">Khung giờ khởi hành</h3>
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <Input type="time" id="quick-time-input" className="w-full" />
+                                            <Button type="button" onClick={() => {
+                                                const input = document.getElementById('quick-time-input') as HTMLInputElement;
+                                                if (input.value) {
+                                                    if (!newItem.departureTimes?.includes(input.value)) {
+                                                        setNewItem({ ...newItem, departureTimes: [...(newItem.departureTimes || []), input.value].sort() });
+                                                    }
+                                                    input.value = '';
+                                                }
+                                            }}>Thêm</Button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {(newItem.departureTimes && newItem.departureTimes.length > 0) ? (
+                                                newItem.departureTimes.map((time, idx) => (
+                                                    <Badge key={idx} variant="outline" className="pl-2 pr-1 py-1 flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                                                        {time} <X className="h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => {
+                                                            setNewItem({ ...newItem, departureTimes: newItem.departureTimes?.filter(t => t !== time) });
+                                                        }} />
+                                                    </Badge>
+                                                ))
+                                            ) : (
+                                                <p className="text-sm text-yellow-600 italic">Chưa có giờ khởi hành. (Mặc định sẽ là cả ngày)</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Duration for Transport */}
+                            {activeTab !== 'hotel' && (
+                                <div className="space-y-2 mt-4">
+                                    <Label>Thời gian hành trình (Duration)</Label>
+                                    <Input
+                                        placeholder="VD: 2h 30m"
+                                        value={newItem.duration || ''}
+                                        onChange={(e) => setNewItem({ ...newItem, duration: e.target.value })}
+                                    />
+                                    <p className="text-xs text-muted-foreground">Thời gian này sẽ được dùng để tính giờ đến nơi.</p>
                                 </div>
                             )}
 

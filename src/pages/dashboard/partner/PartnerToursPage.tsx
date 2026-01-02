@@ -58,6 +58,10 @@ interface Tour {
   duration: string;
   status: 'draft' | 'published' | 'archived';
   description?: string;
+  mainImage?: string;
+  destinations?: any[];
+  maxGroupSize?: number;
+  quantity?: number;
   destination: {
     _id: string;
     name: string;
@@ -430,8 +434,8 @@ export default function PartnerToursPage() {
 
                       {/* Cột Số lượng */}
                       <TableCell>
-                        <Badge variant="outline" className={(tour as any).quantity > 0 ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-red-50 text-red-700 hover:bg-red-100"}>
-                          {(tour as any).quantity || (tour as any).maxGroupSize || 0} vé
+                        <Badge variant="outline" className={(tour as any).maxGroupSize > 0 ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-red-50 text-red-700 hover:bg-red-100"}>
+                          {(tour as any).maxGroupSize || (tour as any).quantity || 0} khách/tour
                         </Badge>
                       </TableCell>
 

@@ -18,6 +18,22 @@ import { useAuth } from '@/context/AuthContext';
 import { useBooking } from '@/context/BookingContext';
 import apiClient from '@/services/apiClient';
 
+// Helper to safely format YYYY-MM-DD date string without timezone shifts
+const safeFormatDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    // If it's a simple YYYY-MM-DD string
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    // Fallback to standard Date parsing for ISO strings
+    return new Date(dateStr).toLocaleDateString('vi-VN');
+  } catch (e) {
+    return dateStr;
+  }
+};
+
 const schema = z.object({
   name: z.string().min(2, 'Vui lòng nhập họ tên'),
   email: z.string().email('Email không hợp lệ'),
@@ -56,7 +72,16 @@ export default function CheckoutPage() {
   };
 
   const { mutate: finalizeBooking, isPending } = useMutation({
-    mutationFn: (finalBookingData: any) => apiClient.post<any>('/bookings', finalBookingData),
+    mutationFn: async (finalBookingData: any) => {
+      console.log('DEBUG: Checkout Payload:', finalBookingData); // Check what is being sent
+      try {
+        const res = await apiClient.post<any>('/bookings', finalBookingData);
+        return res;
+      } catch (error) {
+        console.error('Error during booking API call:', error);
+        throw error;
+      }
+    },
     onSuccess: (response: any) => {
       if (!response?.success) throw new Error(response?.error || 'Đặt dịch vụ thất bại');
       toast.success('Đặt thành công! Email xác nhận đang được gửi đến bạn.');
@@ -112,6 +137,7 @@ export default function CheckoutPage() {
       finalData = {
         ...finalData,
         type: bookingDetails.type,
+        title: bookingDetails.title, // Pass title for snapshot
         // Pass generic transport details
         operator: bookingDetails.operator || bookingDetails.airline,
         transportNumber: bookingDetails.transportNumber || bookingDetails.flightNumber,
@@ -122,7 +148,8 @@ export default function CheckoutPage() {
         duration: bookingDetails.duration,
         unitPrice: bookingDetails.unitPrice,
         totalPrice: bookingDetails.clientComputedTotal,
-        participants: bookingDetails.participantsTotal
+        participants: bookingDetails.participantsTotal,
+        departureTime: bookingDetails.departureTime // Ensure departureTime is passed
       };
     } else {
       // Default to Tour
@@ -323,7 +350,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Ngày đi</span>
-                  <span className="font-medium">{new Date(bookingDetails.bookingDate!).toLocaleDateString('vi-VN')}</span>
+                  <span className="font-medium">{safeFormatDate(bookingDetails.bookingDate!)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Hạng vé</span>
@@ -340,7 +367,7 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Ngày khởi hành</span>
-                  <span className="font-medium">{new Date(bookingDetails.bookingDate!).toLocaleDateString('vi-VN')}</span>
+                  <span className="font-medium">{safeFormatDate(bookingDetails.bookingDate!)}</span>
                 </div>
               </>
             )}

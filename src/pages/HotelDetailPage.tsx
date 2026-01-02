@@ -33,12 +33,7 @@ const IconForAmenity = ({ name }: { name: string }) => {
 };
 
 // helper: format date to yyyy-MM-dd for input[type=date] min/value
-function toYYYYMMDD(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+// helper: custom toYYYYMMDD removed, using date-fns format directly
 
 function normalizeProviderUrl(providerRaw?: string | null, hotelName?: string | null) {
   if (providerRaw && typeof providerRaw === 'string' && providerRaw.trim()) {
@@ -79,15 +74,16 @@ const HotelDetailPage: React.FC = () => {
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // booking form state
-  const todayStr = toYYYYMMDD(new Date());
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const [checkIn, setCheckIn] = useState<string>(preCheckIn || todayStr);
   // default checkout = checkIn + 1 day
   const defaultCheckout = useMemo(() => {
     try {
       const d = new Date((preCheckIn || todayStr) + 'T00:00:00');
       d.setDate(d.getDate() + 1);
-      return toYYYYMMDD(d);
-    } catch { return toYYYYMMDD(new Date(Date.now() + 24 * 3600 * 1000)); }
+      d.setDate(d.getDate() + 1);
+      return format(d, 'yyyy-MM-dd');
+    } catch { return format(new Date(Date.now() + 24 * 3600 * 1000), 'yyyy-MM-dd'); }
   }, [preCheckIn, todayStr]);
   const [checkOut, setCheckOut] = useState<string>(preCheckOut || defaultCheckout);
 
@@ -245,7 +241,7 @@ const HotelDetailPage: React.FC = () => {
     try {
       const d = new Date(checkIn + 'T00:00:00');
       d.setDate(d.getDate() + 1);
-      const minOut = toYYYYMMDD(d);
+      const minOut = format(d, 'yyyy-MM-dd');
       if (!checkOut || checkOut < minOut) {
         setCheckOut(minOut);
       }
@@ -483,8 +479,8 @@ const HotelDetailPage: React.FC = () => {
                     value={checkOut}
                     min={(() => {
                       try {
-                        const d = new Date(checkIn + 'T00:00:00'); d.setDate(d.getDate() + 1); return toYYYYMMDD(d);
-                      } catch { const t = new Date(); t.setDate(t.getDate() + 1); return toYYYYMMDD(t); }
+                        const d = new Date(checkIn + 'T00:00:00'); d.setDate(d.getDate() + 1); return format(d, 'yyyy-MM-dd');
+                      } catch { const t = new Date(); t.setDate(t.getDate() + 1); return format(t, 'yyyy-MM-dd'); }
                     })()}
                     onChange={(e) => setCheckOut(e.target.value)}
                   />

@@ -8,14 +8,126 @@ import User from '../models/User.js';
 import Coupon from '../models/Coupon.js';
 import PartnerService from '../models/PartnerService.js';
 
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireApprovedPartner } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Apply auth middleware to all partner routes (or selectively)
-// router.use(requireAuth); 
+// Apply auth middleware to all partner routes
+router.use(requireApprovedPartner);
 
 // --- Routes ---
+
+// GET /api/partner/reviews
+router.get('/reviews', requireAuth, async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const { page = 1, limit = 10, search, status, rating } = req.query;
+
+        // 1. Find all tours owned by this partner
+        const tours = await Tour.find({ owner: userId }).select('_id title');
+        const tourIds = tours.map(t => t._id);
+
+        if (tourIds.length === 0) {
+            return res.json({
+                success: true,
+                data: {
+                    reviews: [],
+                    pagination: { page: 1, limit: 10, total: 0, pages: 0 },
+                    stats: {
+                        averageRating: 0,
+                        totalReviews: 0,
+                        distribution: { five: 0, four: 0, three: 0, two: 0, one: 0 }
+                    }
+                }
+            });
+        }
+
+        // 2. Build Query
+        const query = { tour: { $in: tourIds } };
+
+        if (status && status !== 'all') {
+            query.status = status;
+        }
+
+        if (rating && rating !== 'all') {
+            query.rating = parseInt(rating);
+        }
+
+        // Search by user name or tour title
+        if (search) {
+            const userIds = await User.find({ name: { $regex: search, $options: 'i' } }).distinct('_id');
+            const matchingTourIds = tours.filter(t => t.title.toLowerCase().includes(search.toLowerCase())).map(t => t._id);
+
+            // We need to use $and if we want to combine with existing query properties strictly,
+            // but since we are building `query` fresh here:
+            query.$or = [
+                { user: { $in: userIds } },
+                { tour: { $in: matchingTourIds } }
+            ];
+        }
+
+        // 3. Stats Aggregation
+        const statsAggregation = await Review.aggregate([
+            { $match: { tour: { $in: tourIds } } },
+            {
+                $group: {
+                    _id: null,
+                    averageRating: { $avg: '$rating' },
+                    totalReviews: { $sum: 1 },
+                    five: { $sum: { $cond: [{ $eq: ['$rating', 5] }, 1, 0] } },
+                    four: { $sum: { $cond: [{ $eq: ['$rating', 4] }, 1, 0] } },
+                    three: { $sum: { $cond: [{ $eq: ['$rating', 3] }, 1, 0] } },
+                    two: { $sum: { $cond: [{ $eq: ['$rating', 2] }, 1, 0] } },
+                    one: { $sum: { $cond: [{ $eq: ['$rating', 1] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        const stats = statsAggregation[0] || {
+            averageRating: 0, totalReviews: 0, five: 0, four: 0, three: 0, two: 0, one: 0
+        };
+
+        // 4. Pagination & Fetch
+        const total = await Review.countDocuments(query);
+        const pages = Math.ceil(total / limit);
+        const skip = (page - 1) * limit;
+
+        const reviews = await Review.find(query)
+            .populate('user', 'name email avatar')
+            .populate('tour', 'title')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        res.json({
+            success: true,
+            data: {
+                reviews,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    pages
+                },
+                stats: {
+                    averageRating: parseFloat(stats.averageRating.toFixed(1)),
+                    totalReviews: stats.totalReviews,
+                    distribution: {
+                        five: stats.five,
+                        four: stats.four,
+                        three: stats.three,
+                        two: stats.two,
+                        one: stats.one
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Partner get reviews error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // GET /api/partner/destinations
 router.get('/destinations', async (req, res) => {
@@ -338,6 +450,7 @@ router.post('/tours', requireAuth, async (req, res) => {
 
         const newTour = await Tour.create({
             ...body,
+            schedule: body.schedule, // Explicitly allow schedule
             owner: req.user.userId // Enforce owner from token
         });
         res.json({ success: true, data: newTour });
@@ -1027,13 +1140,22 @@ router.post('/services', requireAuth, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Name, type and price are required' });
         }
 
+        // Validation: Hotel/Transport must have roomTypes/ticketTypes
+        if (body.type === 'hotel' && (!body.roomTypes || body.roomTypes.length === 0)) {
+            return res.status(400).json({ success: false, error: 'Vui lòng thêm ít nhất 1 loại phòng cho khách sạn.' });
+        }
+        if (['flight', 'train', 'bus'].includes(body.type) && (!body.ticketTypes || body.ticketTypes.length === 0) && (!body.roomTypes || body.roomTypes.length === 0)) {
+            // Fallback to roomTypes check for backward compatibility or strict ticketTypes
+            return res.status(400).json({ success: false, error: 'Vui lòng thêm ít nhất 1 loại vé cho dịch vụ vận chuyển.' });
+        }
+
         const newService = await PartnerService.create({
             ...body,
             owner: userId,
-            // Allow override but default to active
-            status: body.status || 'active',
-            // Default rating if not provided (though usually starts at 0 or 5 depending on logic, let's say 0 or 5 if you want them to look good initially)
-            rating: body.rating || 4.5
+            // Force status to pending for new services
+            status: 'pending',
+            // Default rating
+            rating: 0
         });
 
         res.json({ success: true, data: newService });
@@ -1050,6 +1172,25 @@ router.put('/services/:id', requireAuth, async (req, res) => {
         const userId = req.user.userId;
         const updates = req.body;
         console.log('Received service update:', JSON.stringify(updates, null, 2));
+
+        // Security: If partner tries to set status to 'active', force it to 'pending'
+        // Only Admin can set to 'active'. Partner can only set 'inactive' or 'pending' (submit for review)
+        if (updates.status === 'active') {
+            updates.status = 'pending';
+        }
+
+        // Context: If critical info changes, should we reset to pending? 
+        // For now, let's strictly enforce that Partner CANNOT set 'active'.
+        // If the service is currently 'rejected', any update should reset it to 'pending' for re-review.
+        const currentService = await PartnerService.findOne({ _id: id, owner: userId });
+        if (currentService && (currentService.status === 'rejected' || currentService.status === 'active')) {
+            // If active service is edited, do we keep it active? 
+            // Ideally: Small changes ok, big changes -> pending.
+            // Simple rule for now: If Name, Price, or Routes change -> Pending.
+            if (updates.price || updates.name || updates.route || updates.roomTypes || updates.ticketTypes || updates.departureTimes) {
+                updates.status = 'pending';
+            }
+        }
 
         const service = await PartnerService.findOneAndUpdate(
             { _id: id, owner: userId },
@@ -1073,6 +1214,24 @@ router.delete('/services/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.userId;
+
+        const { default: Booking } = await import('../models/Booking.js');
+
+        // Check for active bookings
+        const activeBookings = await Booking.countDocuments({
+            partnerService: id,
+            status: { $in: ['pending', 'confirmed', 'provisional'] },
+            checkInDate: { $gte: new Date() } // Future bookings
+        });
+
+        if (activeBookings > 0) {
+            return res.status(400).json({
+                success: false,
+                error: `Không thể xóa dịch vụ này vì đang có ${activeBookings} đơn đặt hàng chưa hoàn thành. Hãy chuyển sang trạng thái 'Ngừng hoạt động' (Inactive).`
+            });
+        }
+
+
 
         const deleted = await PartnerService.findOneAndDelete({ _id: id, owner: userId });
 

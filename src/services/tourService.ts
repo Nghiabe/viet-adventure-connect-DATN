@@ -55,54 +55,78 @@ export interface TourDetailResponse {
 }
 
 export async function getTourById(id: string): Promise<TourDetailResponse['data'] | EnrichedTour> {
-  // Try AI service first (for enriched tours from scraping)
-  try {
-    // Use /api/ai-tours proxy which maps to /v1/tours on AI service
-    const aiResponse = await fetch(`/api/ai-tours/${id}`);
-    if (aiResponse.ok) {
-      const aiData = await aiResponse.json();
-      if (aiData.success && aiData.tour) {
-        // Convert to format expected by frontend
-        const tour = aiData.tour;
-        return {
-          tour: {
-            _id: tour._id,
-            title: tour.title,
-            description: tour.description,
-            price: tour.price,
-            duration: tour.duration,
-            maxGroupSize: tour.max_group_size,
-            averageRating: tour.average_rating || 0,
-            reviewCount: tour.review_count || 0,
-            isSustainable: tour.is_sustainable,
-            mainImage: tour.main_image,
-            imageGallery: tour.image_gallery || [],
-            // Enriched fields
-            route: tour.route,
-            highlights: tour.highlights || [],
-            schedule: tour.schedule || {},
-            inclusions: tour.inclusions || [],
-            exclusions: tour.exclusions || [],
-            tips: tour.tips,
-            category: tour.category,
-            images: tour.images || [],
-            // Fake destination object
-            destination: { name: tour.location, slug: '' }
-          } as any,
-          reviews: [] // AI service doesn't have reviews yet
-        };
-      }
+  // 1. Fetch from Main Backend (Source of Truth for IDs, Reviews, Bookings)
+  const backendPromise = apiClient.get<TourDetailResponse['data']>(`/tours/${id}`)
+    .then(res => res.data)
+    .catch(err => {
+      console.warn('Backend tour fetch failed:', err);
+      return null;
+    });
+
+  // 2. Fetch from AI Service (Enrichment source)
+  const aiPromise = fetch(`/api/ai-tours/${id}`)
+    .then(res => res.ok ? res.json() : null)
+    .then(data => data?.success ? data.tour : null)
+    .catch(() => null);
+
+  const [backendData, aiTour] = await Promise.all([backendPromise, aiPromise]);
+
+  // Case A: We have backend data (this is a real DB tour)
+  if (backendData) {
+    const { tour, reviews } = backendData;
+
+    // Merge AI enrichment if available
+    let finalTour = { ...tour };
+    if (aiTour) {
+      finalTour = {
+        ...finalTour,
+        // Overlay enriched fields if they are missing or better in AI data
+        route: finalTour.route || aiTour.route,
+        highlights: (finalTour.highlights && finalTour.highlights.length) ? finalTour.highlights : aiTour.highlights,
+        schedule: finalTour.schedule || aiTour.schedule,
+        tips: finalTour.tips || aiTour.tips,
+        inclusions: (finalTour.inclusions && finalTour.inclusions.length) ? finalTour.inclusions : aiTour.inclusions,
+        exclusions: (finalTour.exclusions && finalTour.exclusions.length) ? finalTour.exclusions : aiTour.exclusions,
+        imageGallery: (finalTour.imageGallery && finalTour.imageGallery.length) ? finalTour.imageGallery : aiTour.image_gallery
+      };
     }
-  } catch (e) {
-    console.warn('AI service tour fetch failed, falling back to main API:', e);
+
+    return {
+      tour: finalTour as any, // Cast to handle schema intersections
+      reviews: reviews || []
+    };
   }
 
-  // Fallback to main backend API
-  const res = await apiClient.get<TourDetailResponse['data']>(`/tours/${id}`);
-  if (!res.success || !res.data) {
-    throw new Error(res.error || 'Failed to fetch tour');
+  // Case B: Backend failed, but we have AI data (e.g. external/scraped tour)
+  if (aiTour) {
+    return {
+      tour: {
+        _id: aiTour._id,
+        title: aiTour.title,
+        description: aiTour.description,
+        price: aiTour.price,
+        duration: aiTour.duration,
+        maxGroupSize: aiTour.max_group_size,
+        averageRating: aiTour.average_rating || 0,
+        reviewCount: aiTour.review_count || 0,
+        isSustainable: aiTour.is_sustainable,
+        mainImage: aiTour.main_image,
+        imageGallery: aiTour.image_gallery || [],
+        route: aiTour.route,
+        highlights: aiTour.highlights || [],
+        schedule: aiTour.schedule || {},
+        inclusions: aiTour.inclusions || [],
+        exclusions: aiTour.exclusions || [],
+        tips: aiTour.tips,
+        category: aiTour.category,
+        images: aiTour.images || [],
+        destination: { name: aiTour.location, slug: '' }
+      } as any,
+      reviews: [] // No reviews for AI-only tours
+    };
   }
-  return res.data;
+
+  throw new Error('Failed to fetch tour details');
 }
 
 export async function searchTours(params: {

@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 
 const roleRedirectMap = {
   user: '/',
-  partner: '/dashboard',
+  partner: '/', // Active partners access dashboard via Header
   staff: '/dashboard',
   admin: '/dashboard'
 } as const;

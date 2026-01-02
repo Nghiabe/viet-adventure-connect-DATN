@@ -271,10 +271,10 @@ export default function BookingDetailPage() {
                                         <div>
                                             <p className="text-sm font-medium text-muted-foreground">Ngày khởi hành</p>
                                             <p className="font-semibold text-foreground">
-                                                {format(new Date(booking.bookingDate), 'd MMMM, yyyy', { locale: vi })}
+                                                {format(new Date((booking as any).checkInDate || (booking as any).departureTime || booking.bookingDate), 'd MMMM, yyyy', { locale: vi })}
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                {format(new Date(booking.bookingDate), 'EEEE', { locale: vi })}
+                                                {format(new Date((booking as any).checkInDate || (booking as any).departureTime || booking.bookingDate), 'EEEE', { locale: vi })}
                                             </p>
                                         </div>
                                     </div>

@@ -9,10 +9,11 @@ const PartnerServiceSchema = new mongoose.Schema({
     address: { type: String }, // Detailed address
     route: { type: String }, // For transport
     rating: { type: Number, default: 0 },
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    status: { type: String, enum: ['active', 'inactive', 'pending', 'rejected'], default: 'pending' },
     image: { type: String, default: '' }, // Main thumbnail
     images: [String], // Gallery
     description: String,
+    duration: { type: String, default: '2h 00m' }, // Transport Duration
     quantity: { type: Number, default: 0 }, // Total availability
 
     // Hotel Specifics
@@ -32,6 +33,7 @@ const PartnerServiceSchema = new mongoose.Schema({
         images: [String]
     }],
     // Transport Specifics
+    departureTimes: [String], // Array of times e.g. ["08:00", "14:00"]
     ticketTypes: [{
         name: String,
         price: Number,

@@ -26,14 +26,14 @@ const BookingSchema = new mongoose.Schema(
             checkOut: Date,
             nights: Number,
             roomType: String,
-            roomType: String,
             providerUrl: String,
 
             // Flight specifics
             airline: String,
             flightNumber: String,
             location: String, // e.g., "HAN - SGN"
-            tripTime: String  // e.g., "HH:mm"
+            tripTime: String,  // e.g., "HH:mm"
+            class: String      // e.g., "Economy", "Standard"
         },
 
         bookingDate: { type: Date, default: Date.now }, // Created At basically
@@ -47,6 +47,7 @@ const BookingSchema = new mongoose.Schema(
 
         totalPrice: { type: Number, required: true, min: 0 },
         status: { type: String, enum: ['pending', 'confirmed', 'cancelled', 'refunded', 'provisional'], default: 'pending' },
+        isReviewed: { type: Boolean, default: false },
 
         paymentId: { type: String },
         paymentMethod: { type: String },

@@ -1,6 +1,6 @@
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { ModerationPage } from '@/pages/dashboard/_stubs';
+import ModerationPage from '@/pages/admin/ModerationPage';
 import SettingsPage from '@/pages/admin/SettingsPage';
 import DestinationsPage from '@/pages/admin/DestinationsPage';
 import DestinationEditorPage from '@/pages/admin/DestinationEditorPage';

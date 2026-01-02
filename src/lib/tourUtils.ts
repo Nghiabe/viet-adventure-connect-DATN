@@ -17,6 +17,8 @@ interface TourLike {
     imageGallery?: string[];
 }
 
+// const API_BASE_URL = 'http://localhost:4000'; // Deprecated: Use relative paths via proxy
+
 /**
  * Get the first valid image URL from a tour object.
  * Priority: AI-enriched images → mainImage → imageGallery → null
@@ -26,14 +28,14 @@ export function getTourImageUrl(tour: TourLike): string | null {
     if (tour.images && Array.isArray(tour.images) && tour.images.length > 0) {
         const firstImg = tour.images[0];
         if (typeof firstImg === 'object') {
-            if (firstImg.url && firstImg.url.startsWith('http')) return firstImg.url;
-            if (firstImg.thumbnail && firstImg.thumbnail.startsWith('http')) return firstImg.thumbnail;
+            if (firstImg.url) return firstImg.url;
+            if (firstImg.thumbnail) return firstImg.thumbnail;
         }
     }
 
     // Check main_image (snake_case from API) or mainImage (camelCase)
     const mainImg = tour.main_image || tour.mainImage;
-    if (mainImg && typeof mainImg === 'string' && mainImg.startsWith('http')) {
+    if (mainImg && typeof mainImg === 'string') {
         return mainImg;
     }
 
@@ -41,7 +43,7 @@ export function getTourImageUrl(tour: TourLike): string | null {
     const gallery = tour.image_gallery || tour.imageGallery;
     if (gallery && Array.isArray(gallery) && gallery.length > 0) {
         const firstGalleryImg = gallery[0];
-        if (typeof firstGalleryImg === 'string' && firstGalleryImg.startsWith('http')) {
+        if (typeof firstGalleryImg === 'string') {
             return firstGalleryImg;
         }
     }
@@ -59,11 +61,8 @@ export function getAllTourImages(tour: TourLike): string[] {
     // Add AI-enriched images
     if (tour.images && Array.isArray(tour.images)) {
         for (const img of tour.images) {
-            if (img.url && img.url.startsWith('http')) {
-                images.push(img.url);
-            } else if (img.thumbnail && img.thumbnail.startsWith('http')) {
-                images.push(img.thumbnail);
-            }
+            const url = img.url || img.thumbnail;
+            if (url) images.push(url);
         }
     }
 
@@ -71,7 +70,7 @@ export function getAllTourImages(tour: TourLike): string[] {
     const gallery = tour.image_gallery || tour.imageGallery;
     if (gallery && Array.isArray(gallery)) {
         for (const url of gallery) {
-            if (typeof url === 'string' && url.startsWith('http') && !images.includes(url)) {
+            if (typeof url === 'string' && !images.includes(url)) {
                 images.push(url);
             }
         }
@@ -79,7 +78,7 @@ export function getAllTourImages(tour: TourLike): string[] {
 
     // Add main image if not already included
     const mainImg = tour.main_image || tour.mainImage;
-    if (mainImg && typeof mainImg === 'string' && mainImg.startsWith('http') && !images.includes(mainImg)) {
+    if (mainImg && typeof mainImg === 'string' && !images.includes(mainImg)) {
         images.unshift(mainImg);  // Add to front
     }
 

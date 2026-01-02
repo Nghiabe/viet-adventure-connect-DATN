@@ -67,7 +67,7 @@ export const UserMenu = ({ user, logout, showName = false }: UserMenuProps) => {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {(user.role === 'admin' || user.role === 'staff' || user.role === 'partner') && (
+                {(user.role === 'admin' || user.role === 'staff' || (user.role === 'partner' && user.status === 'active')) && (
                     <DropdownMenuItem asChild>
                         <Link to="/dashboard" className="cursor-pointer">
                             <User className="mr-2 h-4 w-4" />

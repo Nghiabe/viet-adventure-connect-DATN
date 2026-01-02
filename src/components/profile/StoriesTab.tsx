@@ -8,16 +8,34 @@ export interface StoryItem {
   coverImage?: string | null;
   excerpt?: string;
   likeCount?: number;
+  status: 'draft' | 'published' | 'archived' | 'pending';
 }
 
 const StoryCard = ({ story }: { story: StoryItem }) => {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'published':
+        return <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">Đã đăng</span>;
+      case 'pending':
+        return <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">Chờ duyệt</span>;
+      case 'archived':
+      case 'rejected':
+        return <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">Bị từ chối</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{status}</span>;
+    }
+  };
+
   return (
-    <div className="bg-background rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+    <div className="bg-background rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow relative group">
       {story.coverImage ? (
         <img src={story.coverImage} alt={story.title} className="w-full h-40 object-cover" />
       ) : (
         <div className="w-full h-40 bg-muted" />
       )}
+      <div className="absolute top-2 right-2">
+        {getStatusBadge(story.status)}
+      </div>
       <div className="p-4">
         <h3 className="font-semibold text-lg mb-2 line-clamp-1">{story.title}</h3>
         {story.excerpt && (

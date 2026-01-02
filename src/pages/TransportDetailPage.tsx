@@ -12,6 +12,36 @@ import { useBooking } from '@/context/BookingContext';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+// Helper to add duration to time
+const calculateArrivalTime = (startTime: string, durationStr: string) => {
+    if (!startTime) return '--:--';
+    if (!durationStr) return '--:--';
+
+    try {
+        const [startH, startM] = startTime.split(':').map(Number);
+        const durationParts = durationStr.match(/(\d+)h\s*(\d*)m?/);
+
+        if (!durationParts) return '--:--';
+
+        const durH = parseInt(durationParts[1] || '0');
+        const durM = parseInt(durationParts[2] || '0');
+
+        let endH = startH + durH;
+        let endM = startM + durM;
+
+        if (endM >= 60) {
+            endH += Math.floor(endM / 60);
+            endM = endM % 60;
+        }
+
+        endH = endH % 24;
+
+        return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+    } catch (e) {
+        return '--:--';
+    }
+};
+
 const TransportDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -22,6 +52,7 @@ const TransportDetailPage = () => {
     // Query params for pre-filling
     const searchParams = new URLSearchParams(location.search);
     const dateParam = searchParams.get('date');
+    const timeParam = searchParams.get('time'); // Get time param
     const passengersParam = searchParams.get('passengers');
 
     const [service, setService] = useState<any>(null);
@@ -29,9 +60,11 @@ const TransportDetailPage = () => {
     const [error, setError] = useState('');
 
     // Booking State
-    const [bookingDate, setBookingDate] = useState(dateParam || new Date().toISOString().split('T')[0]);
+    // Use local date for default instead of UTC (toISOString)
+    const [bookingDate, setBookingDate] = useState(dateParam || format(new Date(), 'yyyy-MM-dd'));
     const [passengers, setPassengers] = useState(passengersParam ? parseInt(passengersParam) : 1);
     const [selectedTicketType, setSelectedTicketType] = useState<string>(''); // ID of ticket type
+    const [selectedTime, setSelectedTime] = useState<string>(timeParam || ''); // Init from URL if present
     const [isBooking, setIsBooking] = useState(false);
 
     useEffect(() => {
@@ -46,6 +79,10 @@ const TransportDetailPage = () => {
                     // Select first ticket type by default
                     if (data.data.ticketTypes && data.data.ticketTypes.length > 0) {
                         setSelectedTicketType(data.data.ticketTypes[0]._id || data.data.ticketTypes[0].name);
+                    }
+                    // Select first departure time by default only if not already set from URL
+                    if (!timeParam && data.data.departureTimes && data.data.departureTimes.length > 0) {
+                        setSelectedTime(data.data.departureTimes[0]);
                     }
                 } else {
                     setError(data.error || 'Failed to load service');
@@ -64,14 +101,16 @@ const TransportDetailPage = () => {
     const [availability, setAvailability] = useState<any>({ ticketTypes: [], globalAvailable: null });
     const [checkingAvailability, setCheckingAvailability] = useState(false);
 
-    // Fetch availability when date changes
+    // Fetch availability when date or time changes
     useEffect(() => {
         if (!id || !bookingDate) return;
 
         const fetchAvailability = async () => {
             setCheckingAvailability(true);
             try {
-                const res = await fetch(`/api/transport/${id}/availability?date=${bookingDate}`);
+                // Pass time param if selected
+                const timeQuery = selectedTime ? `&time=${selectedTime}` : '';
+                const res = await fetch(`/api/transport/${id}/availability?date=${bookingDate}${timeQuery}`);
                 const data = await res.json();
                 if (data.success) {
                     setAvailability(data.data);
@@ -84,7 +123,7 @@ const TransportDetailPage = () => {
         };
 
         fetchAvailability();
-    }, [id, bookingDate]);
+    }, [id, bookingDate, selectedTime]); // Re-run when selectedTime changes
 
     const getTypeIcon = (type: string) => {
         switch (type) {
@@ -147,11 +186,11 @@ const TransportDetailPage = () => {
             type: service.type,
             title: `${service.type === 'flight' ? 'Vé máy bay' : service.type === 'train' ? 'Vé tàu' : 'Vé xe'} ${service.operator} - ${service?.departure?.station} đi ${service?.arrival?.station}`,
             operator: service.operator,
-            transportNumber: service.id, // Or flight number
+            transportNumber: service._id || service.id, // Ensure correct ID is passed
             origin: {
                 city: service.departure.station,
                 station: service.departure.station,
-                time: service.departure.time
+                time: selectedTime || service.departure.time // Use selected time
             },
             destination: {
                 city: service.arrival.station,
@@ -164,6 +203,7 @@ const TransportDetailPage = () => {
             unitPrice: unitPrice,
             clientComputedTotal: totalPrice,
             class: currentTicket?.name || 'Standard',
+            departureTime: selectedTime, // Explicitly pass departureTime
             // Pass raw service if needed
             raw: service
         });
@@ -206,7 +246,7 @@ const TransportDetailPage = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-lg border border-dashed">
                                 <div className="text-center md:text-left">
-                                    <div className="text-xl font-bold">{service.departure.time}</div>
+                                    <div className="text-xl font-bold">{selectedTime || service.departure.time}</div>
                                     <div className="text-sm font-medium">{service.departure.station}</div>
                                 </div>
                                 <div className="flex flex-col items-center justify-center text-sm text-muted-foreground">
@@ -218,7 +258,9 @@ const TransportDetailPage = () => {
                                     <span className="mt-1 lowercase">Bay thẳng</span>
                                 </div>
                                 <div className="text-center md:text-right">
-                                    <div className="text-xl font-bold">{service.arrival.time}</div>
+                                    <div className="text-xl font-bold">
+                                        {calculateArrivalTime(selectedTime || service.departure.time, service.duration)}
+                                    </div>
                                     <div className="text-sm font-medium">{service.arrival.station}</div>
                                 </div>
                             </div>
@@ -278,6 +320,45 @@ const TransportDetailPage = () => {
                                         onChange={(e) => setBookingDate(e.target.value)}
                                     />
                                 </div>
+
+                                {service.departureTimes && service.departureTimes.length > 0 && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium flex items-center gap-2">
+                                            <Clock className="w-4 h-4" /> Giờ khởi hành
+                                        </label>
+                                        <Select value={selectedTime} onValueChange={setSelectedTime}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Chọn giờ" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {service.departureTimes.map((t: string) => {
+                                                    // Check if past
+                                                    const now = new Date();
+                                                    const bookDate = new Date(bookingDate);
+                                                    const isToday = now.toDateString() === bookDate.toDateString();
+                                                    let isPast = false;
+                                                    if (isToday) {
+                                                        const [h, m] = t.split(':').map(Number);
+
+                                                        const requestDate = new Date(now);
+                                                        requestDate.setHours(h, m, 0, 0);
+
+                                                        // 1 hour buffer
+                                                        const cutoffTime = new Date(now.getTime() + 60 * 60 * 1000);
+
+                                                        if (requestDate < cutoffTime) isPast = true;
+                                                    }
+
+                                                    return (
+                                                        <SelectItem key={t} value={t} disabled={isPast}>
+                                                            {t} {isPast ? '(Hết giờ)' : ''}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium flex items-center gap-2">

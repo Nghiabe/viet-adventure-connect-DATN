@@ -41,7 +41,7 @@ interface ServiceItem {
     rating: number;
     reviewCount?: number; // Optional in model but good for UI
     totalBookings?: number; // Calculated or aggregated
-    status: 'active' | 'inactive' | 'pending';
+    status: 'active' | 'inactive' | 'pending' | 'rejected';
     createdAt: string;
 }
 
@@ -49,12 +49,14 @@ function StatusBadge({ status }: { status: string }) {
     const styles = {
         active: 'bg-green-100 text-green-700',
         inactive: 'bg-gray-100 text-gray-700',
-        pending: 'bg-yellow-100 text-yellow-700'
+        pending: 'bg-yellow-100 text-yellow-700',
+        rejected: 'bg-red-100 text-red-700'
     };
     const labels: Record<string, string> = {
         active: 'Hoạt động',
         inactive: 'Ngừng hoạt động',
-        pending: 'Chờ duyệt'
+        pending: 'Chờ duyệt',
+        rejected: 'Đã từ chối'
     };
     return (
         <span className={`px-2 py-1 rounded text-xs font-semibold ${styles[status as keyof typeof styles]}`}>
@@ -127,9 +129,14 @@ export default function ServicesPage() {
         updateStatusMutation.mutate({ id, status: 'inactive' });
     };
 
-    const services: ServiceItem[] = data?.data || [];
-    const totalPages = data?.pagination?.pages || 1;
-    const totalItems = data?.pagination?.total || 0;
+    const handleReject = (id: string) => {
+        // Cast to any because the mutation definition might be strict in existing code, or update it below
+        updateStatusMutation.mutate({ id, status: 'rejected' } as any);
+    };
+
+    const services: ServiceItem[] = (data as any)?.data || [];
+    const totalPages = (data as any)?.pagination?.pages || 1;
+    const totalItems = (data as any)?.pagination?.total || 0;
 
     return (
         <div className="p-6 space-y-6">
@@ -177,6 +184,7 @@ export default function ServicesPage() {
                         <option value="all">Tất cả trạng thái</option>
                         <option value="active">Hoạt động</option>
                         <option value="pending">Chờ duyệt</option>
+                        <option value="rejected">Đã từ chối</option>
                         <option value="inactive">Dừng hoạt động</option>
                     </select>
 
@@ -264,18 +272,23 @@ export default function ServicesPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     {service.status === 'pending' && (
-                                                        <DropdownMenuItem onClick={() => handleApprove(service._id)}>
-                                                            Duyệt / Kích hoạt
-                                                        </DropdownMenuItem>
+                                                        <>
+                                                            <DropdownMenuItem onClick={() => handleApprove(service._id)}>
+                                                                Duyệt / Kích hoạt
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleReject(service._id)} className="text-red-600">
+                                                                Từ chối
+                                                            </DropdownMenuItem>
+                                                        </>
                                                     )}
                                                     {service.status === 'inactive' && (
                                                         <DropdownMenuItem onClick={() => handleApprove(service._id)}>
                                                             Kích hoạt lại
                                                         </DropdownMenuItem>
                                                     )}
-                                                    {service.status === 'active' && (
+                                                    {(service.status === 'active' || service.status === 'rejected') && (
                                                         <DropdownMenuItem onClick={() => handleSuspend(service._id)} className="text-yellow-600">
-                                                            Ngừng hoạt động
+                                                            {service.status === 'active' ? 'Ngừng hoạt động' : 'Tạm ẩn'}
                                                         </DropdownMenuItem>
                                                     )}
                                                     <DropdownMenuItem

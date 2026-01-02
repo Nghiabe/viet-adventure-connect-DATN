@@ -22,6 +22,11 @@ const TourSchema = new mongoose.Schema({
         title: String,
         description: String
     }],
+    schedule: {
+        morning: String,
+        afternoon: String,
+        evening: String
+    },
     // We use mixed type for flexible destinations array matching frontend payload
     destinations: [{
         destinationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Destination' },

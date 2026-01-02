@@ -1,13 +1,33 @@
 import express from 'express';
 import Review from '../models/Review.js';
 import Booking from '../models/Booking.js';
+import Tour from '../models/Tour.js'; // Helper to ensure model is loaded
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// GET /api/reviews/mine/:tourId - Get current user's review for a tour
+router.get('/mine/:tourId', requireAuth, async (req, res) => {
+    try {
+        const { tourId } = req.params;
+        const userId = req.user.userId;
+
+        const review = await Review.findOne({ user: userId, tour: tourId });
+        if (!review) {
+            return res.json({ success: true, data: null });
+        }
+
+        res.json({ success: true, data: review });
+    } catch (error) {
+        console.error('Get my review error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // POST /api/reviews - Create a review
 router.post('/', requireAuth, async (req, res) => {
     try {
+        console.log('[REVIEW] Request Body:', req.body);
         const { tourId, rating, comment } = req.body;
         const userId = req.user.userId;
 
@@ -15,48 +35,106 @@ router.post('/', requireAuth, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Tour ID and rating are required' });
         }
 
-        // 1. Verify User has a verified booking for this tour
-        // We assume 'confirmed' means they went or are going. 
-        // Ideally check checkOutDate < Now for "Completed".
+        // 1. Verify User has a verified booking
         const booking = await Booking.findOne({
             user: userId,
             tour: tourId,
-            status: { $in: ['confirmed', 'completed'] }
+            status: { $in: ['confirmed', 'completed'] },
+            // Optional: checkInDate: { $lt: new Date() } - stricter check
         });
 
         if (!booking) {
             return res.status(403).json({
                 success: false,
-                error: 'Bạn chưa tham gia tour này hoặc đơn hàng chưa được xác nhận, nên không thể đánh giá.'
+                error: 'Bạn chưa có đơn đặt tour hợp lệ để đánh giá.'
             });
         }
 
-        // 2. Check strict timing: Review only AFTER the trip?
-        // Optional: Ensure trip has started/ended.
-        if (booking.checkInDate && new Date(booking.checkInDate) > new Date()) {
-            return res.status(403).json({
-                success: false,
-                error: 'Chuyến đi chưa diễn ra. Vui lòng quay lại đánh giá sau khi kết thúc chuyến đi.'
-            });
-        }
-
-        // 3. Create Review
+        // 2. Create Review
         const newReview = await Review.create({
             user: userId,
             tour: tourId,
             rating: Number(rating),
             comment,
-            status: 'approved' // Auto-approve or pending? Let's auto-approve for now but model default is 'pending'
+            status: 'pending' // Enforce moderation
         });
+
+        // 3. Mark booking as reviewed
+        await Booking.findByIdAndUpdate(booking._id, { isReviewed: true });
 
         res.status(201).json({ success: true, data: newReview });
 
     } catch (error) {
-        // Handle duplicate key error (User already reviewed this tour)
         if (error.code === 11000) {
             return res.status(400).json({ success: false, error: 'Bạn đã đánh giá tour này rồi.' });
         }
         console.error('Create review error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// PUT /api/reviews/:id - Update a review
+router.put('/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { rating, comment } = req.body;
+        const userId = req.user.userId;
+
+        const review = await Review.findOne({ _id: id, user: userId });
+        if (!review) {
+            return res.status(404).json({ success: false, error: 'Review not found' });
+        }
+
+        if (rating) review.rating = Number(rating);
+        if (comment !== undefined) review.comment = comment;
+
+        await review.save(); // triggers post-save hook for average rating
+
+        res.json({ success: true, data: review });
+
+    } catch (error) {
+        console.error('Update review error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/reviews/:id - Delete a review
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.userId;
+
+        const review = await Review.findOne({ _id: id, user: userId });
+        if (!review) {
+            return res.status(404).json({ success: false, error: 'Review not found' });
+        }
+
+        const tourId = review.tour;
+
+        // Delete using deleteOne to assume hooks might need explicit call if model setup differs, 
+        // but typically document.remove() or deleteOne() is best. 
+        // Note: ReviewSchema.post('remove') works with doc.remove(). 
+        // mongoose >= 5.x uses deleteOne.
+
+        await Review.deleteOne({ _id: id });
+
+        // Trigger Average Calc manually or ensure hook works. 
+        // The scheme has "remove" hook, which is deprecated. 
+        // Let's call calc manually to be safe.
+        await Review.calculateAverageRating(tourId);
+
+        // Reset Booking isReviewed status
+        // We find the booking for this user/tour and set isReviewed = false
+        // Ideally we should have stored bookingId in review, but we can infer it.
+        await Booking.findOneAndUpdate(
+            { user: userId, tour: tourId, status: { $in: ['confirmed', 'completed'] } },
+            { isReviewed: false }
+        );
+
+        res.json({ success: true, message: 'Deleted review successfully' });
+
+    } catch (error) {
+        console.error('Delete review error:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -81,27 +159,27 @@ router.get('/check/:tourId', requireAuth, async (req, res) => {
         const { tourId } = req.params;
         const userId = req.user.userId;
 
-        // 1. Check if already reviewed
-        const existingReview = await Review.findOne({ user: userId, tour: tourId });
-        if (existingReview) {
-            return res.json({ success: true, canReview: false, reason: 'already_reviewed' });
-        }
-
-        // 2. Check for valid booking
-        // Must be confirmed or completed.
-        // And checkInDate must be in the past (trip started/done).
         const booking = await Booking.findOne({
             user: userId,
             tour: tourId,
             status: { $in: ['confirmed', 'completed'] },
-            checkInDate: { $lt: new Date() }
+            // checkInDate: { $lt: new Date() }
         });
 
         if (!booking) {
-            return res.json({ success: true, canReview: false, reason: 'no_valid_past_booking' });
+            return res.json({ success: true, canReview: false, reason: 'no_booking' });
         }
 
-        res.json({ success: true, canReview: true });
+        // Check if already reviewed (double check)
+        const review = await Review.findOne({ user: userId, tour: tourId });
+
+        res.json({
+            success: true,
+            canReview: true,
+            hasReviewed: !!review, // Inform frontend if they have reviewed
+            bookingId: booking._id,
+            isReviewed: booking.isReviewed // Should match hasReviewed usually
+        });
 
     } catch (error) {
         console.error('Check review eligibility error:', error);

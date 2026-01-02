@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { useBooking } from '@/context/BookingContext';
+import { format } from 'date-fns';
 
 export interface BookingParticipants {
   adults: number;
@@ -37,8 +38,9 @@ export default function BookingConfirmationModal({ open, onOpenChange, tourId, t
     initiateBooking({
       tourId,
       tourName,
+      title: tourName,
       duration,
-      bookingDate: departureDate.toISOString(),
+      bookingDate: format(departureDate, 'yyyy-MM-dd'),
       participantsTotal: (participants.adults || 0) + (participants.children || 0),
       participantsBreakdown: participants,
       unitPrice,

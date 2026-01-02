@@ -26,7 +26,7 @@ export function DestinationHero({ images, title, subtitle }: DestinationHeroProp
             {validImages.map((img) => (
               <CarouselItem key={img.id}>
                 <div className="relative w-full h-[50vh] md:h-[70vh] overflow-hidden rounded-2xl">
-                  <ResilientImage 
+                  <ResilientImage
                     src={img.url}
                     alt={img.alt || title}
                     className="w-full h-full object-cover"

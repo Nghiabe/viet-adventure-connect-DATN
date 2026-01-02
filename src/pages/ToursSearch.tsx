@@ -34,6 +34,7 @@ interface Tour {
   route?: string;
   highlights?: string[];
   schedule?: { morning?: string; afternoon?: string; evening?: string };
+  itinerary?: { day: number; title: string; description: string }[];
   category: string;
   average_rating?: number;
   review_count?: number;
@@ -127,29 +128,42 @@ const SearchTourCard = ({ tour, viewMode }: { tour: Tour; viewMode: 'grid' | 'li
             </div>
           )}
 
-          {/* Schedule Preview */}
-          {hasSchedule && (
+          {/* Schedule or Itinerary Preview */}
+          {hasSchedule ? (
             <div className="mb-3 grid grid-cols-3 gap-2">
               {tour.schedule?.morning && (
-                <div className="text-center p-2 bg-amber-50 rounded-lg border border-amber-200">
-                  <Sun className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+                <div className="text-center p-2 bg-amber-50 rounded-lg border border-amber-200 h-full flex flex-col justify-center">
+                  <Sun className="w-4 h-4 text-amber-500 mx-auto mb-1 flex-shrink-0" />
                   <p className="text-[10px] text-gray-600 line-clamp-2">{tour.schedule.morning.slice(0, 30)}...</p>
                 </div>
               )}
               {tour.schedule?.afternoon && (
-                <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200">
-                  <Sunset className="w-4 h-4 text-orange-500 mx-auto mb-1" />
+                <div className="text-center p-2 bg-orange-50 rounded-lg border border-orange-200 h-full flex flex-col justify-center">
+                  <Sunset className="w-4 h-4 text-orange-500 mx-auto mb-1 flex-shrink-0" />
                   <p className="text-[10px] text-gray-600 line-clamp-2">{tour.schedule.afternoon.slice(0, 30)}...</p>
                 </div>
               )}
               {tour.schedule?.evening && (
-                <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200">
-                  <Moon className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
+                <div className="text-center p-2 bg-indigo-50 rounded-lg border border-indigo-200 h-full flex flex-col justify-center">
+                  <Moon className="w-4 h-4 text-indigo-500 mx-auto mb-1 flex-shrink-0" />
                   <p className="text-[10px] text-gray-600 line-clamp-2">{tour.schedule.evening.slice(0, 30)}...</p>
                 </div>
               )}
             </div>
-          )}
+          ) : (tour.itinerary && tour.itinerary.length > 0) ? (
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {tour.itinerary.slice(0, 3).map((item, idx) => (
+                <div key={idx} className="text-center p-2 bg-blue-50 rounded-lg border border-blue-200 h-full flex flex-col justify-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">Ngày {item.day || idx + 1}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 line-clamp-2" title={item.description || item.title}>
+                    {item.title || item.description || `Khám phá ngày ${idx + 1}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {/* Highlights */}
           {tour.highlights && tour.highlights.length > 0 && (

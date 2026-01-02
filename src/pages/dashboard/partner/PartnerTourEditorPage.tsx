@@ -34,13 +34,16 @@ export default function PartnerTourEditorPage() {
         inclusions: [],
         exclusions: [],
         itinerary: [],
+        schedule: { morning: '', afternoon: '', evening: '' }, // New field
         imageGallery: [],
         destinations: [{ id: '', note: '', name: '' }],
         destination: '', // legacy single
         mainImage: undefined,
         maxGroupSize: 0,
         quantity: 20,
-        start_dates: [] // New field
+        start_dates: [], // New field
+        route: '',
+        highlights: []
     });
 
     // ------------------ ensure initial one empty destination row for UX ------------------
@@ -96,7 +99,8 @@ export default function PartnerTourEditorPage() {
                             destinations: uiDestinations,
                             itinerary: safeItinerary,
                             destination: t.destination?._id || t.destination || (uiDestinations[0]?.id || ''),
-                            start_dates: loadedDates
+                            start_dates: loadedDates,
+                            schedule: tAny.schedule || { morning: '', afternoon: '', evening: '' }
                         });
                     } else {
                         toast.error('Không tìm thấy tour');
@@ -215,7 +219,10 @@ export default function PartnerTourEditorPage() {
                 mainImage: doc.mainImage ? doc.mainImage : undefined,
                 maxGroupSize: typeof doc.maxGroupSize === 'string' ? Number(doc.maxGroupSize) : doc.maxGroupSize,
                 quantity: typeof doc.quantity === 'string' ? Number(doc.quantity) : doc.quantity,
-                start_dates: doc.start_dates // Send dates
+                start_dates: doc.start_dates, // Send dates
+                route: doc.route,
+                highlights: Array.isArray(doc.highlights) ? doc.highlights : [],
+                schedule: doc.schedule // Send schedule
             };
 
             // Build destinations array
@@ -290,7 +297,7 @@ export default function PartnerTourEditorPage() {
                             {/* ... Fields ... */}
                             <div>
                                 <div className="text-sm text-secondary-foreground">Tiêu đề</div>
-                                <Input value={doc.title} onChange={(e) => setDoc({ ...doc, title: e.target.value })} />
+                                <Input value={doc.title} onChange={(e) => setDoc((prev: any) => ({ ...prev, title: e.target.value }))} />
                             </div>
 
                             <div>
@@ -300,12 +307,28 @@ export default function PartnerTourEditorPage() {
 
                             <div>
                                 <div className="text-sm text-secondary-foreground">Mô tả</div>
-                                <Textarea value={doc.description} onChange={(e) => setDoc({ ...doc, description: e.target.value })} rows={6} />
+                                <Textarea value={doc.description} onChange={(e) => setDoc((prev: any) => ({ ...prev, description: e.target.value }))} rows={6} />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <div className="text-sm text-secondary-foreground">Lộ trình (Route)</div>
+                                    <Input placeholder="VD: Đà Nẵng -> Hội An -> Bà Nà" value={doc.route || ''} onChange={(e) => setDoc((prev: any) => ({ ...prev, route: e.target.value }))} />
+                                </div>
+                                <div>
+                                    <div className="text-sm text-secondary-foreground">Điểm nổi bật (Highlights)</div>
+                                    <Textarea
+                                        placeholder="Mỗi dòng một điểm nổi bật"
+                                        value={(doc.highlights || []).join('\n')}
+                                        onChange={(e) => setDoc((prev: any) => ({ ...prev, highlights: e.target.value.split('\n') }))}
+                                        rows={3}
+                                    />
+                                </div>
                             </div>
 
                             <div>
                                 <div className="text-sm text-secondary-foreground">Thời gian</div>
-                                <Input placeholder="VD: 3 ngày 2 đêm" value={doc.duration || ''} onChange={(e) => { setDoc({ ...doc, duration: e.target.value }); setErrors(x => ({ ...x, duration: '' })); }} />
+                                <Input placeholder="VD: 3 ngày 2 đêm" value={doc.duration || ''} onChange={(e) => { setDoc((prev: any) => ({ ...prev, duration: e.target.value })); setErrors(x => ({ ...x, duration: '' })); }} />
                                 {errors.duration && <div className="text-red-400 text-sm mt-1">{errors.duration}</div>}
                             </div>
 
@@ -382,28 +405,77 @@ export default function PartnerTourEditorPage() {
 
                         <Card className="p-4 space-y-3">
                             <div className="text-sm text-secondary-foreground">Ảnh đại diện</div>
-                            <ImageUploader value={doc.mainImage} onChange={(url) => setDoc({ ...doc, mainImage: url })} onUploadSuccess={() => toast.success('Đã tải ảnh chính')} onError={(err) => toast.error(err)} />
+                            <ImageUploader value={doc.mainImage} onChange={(url) => setDoc((prev: any) => ({ ...prev, mainImage: url }))} onUploadSuccess={() => toast.success('Đã tải ảnh chính')} onError={(err) => toast.error(err)} />
                             <div className="text-sm text-secondary-foreground">Thư viện ảnh</div>
-                            <GalleryUploader value={doc.imageGallery} onChange={(urls) => setDoc({ ...doc, imageGallery: urls })} />
+                            <GalleryUploader value={doc.imageGallery} onChange={(urls) => setDoc((prev: any) => ({ ...prev, imageGallery: urls }))} />
                         </Card>
                     </div>
                 </TabsContent>
 
                 {/* Itinerary builder */}
                 <TabsContent value="itinerary">
-                    <Card className="p-4 mt-4">
+                    <Card className="p-4 mt-4 text-sm">
+                        <div className="mb-6 border-b pb-6">
+                            <h3 className="font-semibold text-base mb-3">Tóm tắt Lịch trình (Hiển thị trên thẻ tìm kiếm)</h3>
+                            <div className="text-muted-foreground mb-4">Nhập tóm tắt hoạt động Sáng/Chiều/Tối để hiển thị đẹp mắt trên danh sách tour (giống AI).</div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <label className="font-medium text-amber-600">Sáng</label>
+                                    <Textarea
+                                        placeholder="VD: 08:00 Đón khách..."
+                                        value={doc.schedule?.morning || ''}
+                                        onChange={(e) => setDoc((prev: any) => ({ ...prev, schedule: { ...prev.schedule, morning: e.target.value } }))}
+                                        rows={3}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="font-medium text-orange-600">Chiều</label>
+                                    <Textarea
+                                        placeholder="VD: 14:00 Tham quan..."
+                                        value={doc.schedule?.afternoon || ''}
+                                        onChange={(e) => setDoc((prev: any) => ({ ...prev, schedule: { ...prev.schedule, afternoon: e.target.value } }))}
+                                        rows={3}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="font-medium text-indigo-600">Tối</label>
+                                    <Textarea
+                                        placeholder="VD: 19:00 Ăn tối..."
+                                        value={doc.schedule?.evening || ''}
+                                        onChange={(e) => setDoc((prev: any) => ({ ...prev, schedule: { ...prev.schedule, evening: e.target.value } }))}
+                                        rows={3}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="space-y-3">
-                            <Button size="sm" onClick={() => setDoc({ ...doc, itinerary: [...(doc.itinerary || []), { day: (doc.itinerary?.length || 0) + 1, title: '', description: '' }] })}>+ Thêm ngày</Button>
+                            <h3 className="font-semibold text-base">Chi tiết Lịch trình (Theo ngày)</h3>
+                            <Button size="sm" onClick={() => setDoc((prev: any) => ({ ...prev, itinerary: [...(prev.itinerary || []), { day: (prev.itinerary?.length || 0) + 1, title: '', description: '' }] }))}>+ Thêm ngày</Button>
                             <div className="space-y-3">
                                 {(doc.itinerary || []).map((d: any, idx: number) => (
                                     <div key={idx} className="border border-border rounded p-3 space-y-2">
                                         <div className="flex items-center gap-2">
                                             <div className="text-sm text-secondary-foreground">Ngày {d.day}</div>
                                             <div className="ml-auto" />
-                                            <Button variant="ghost" size="sm" onClick={() => setDoc({ ...doc, itinerary: (doc.itinerary || []).filter((_: any, i: number) => i !== idx) })}>Xóa</Button>
+                                            <Button variant="ghost" size="sm" onClick={() => setDoc((prev: any) => ({ ...prev, itinerary: (prev.itinerary || []).filter((_: any, i: number) => i !== idx) }))}>Xóa</Button>
                                         </div>
-                                        <Input placeholder="Tiêu đề" value={d.title} onChange={(e) => { const it = [...(doc.itinerary || [])]; it[idx] = { ...it[idx], title: e.target.value }; setDoc({ ...doc, itinerary: it }); }} />
-                                        <Textarea placeholder="Mô tả hoạt động" value={d.description} onChange={(e) => { const it = [...(doc.itinerary || [])]; it[idx] = { ...it[idx], description: e.target.value }; setDoc({ ...doc, itinerary: it }); }} rows={4} />
+                                        <Input placeholder="Tiêu đề" value={d.title} onChange={(e) => {
+                                            const val = e.target.value;
+                                            setDoc((prev: any) => {
+                                                const it = [...(prev.itinerary || [])];
+                                                it[idx] = { ...it[idx], title: val };
+                                                return { ...prev, itinerary: it };
+                                            });
+                                        }} />
+                                        <Textarea placeholder="Mô tả hoạt động" value={d.description} onChange={(e) => {
+                                            const val = e.target.value;
+                                            setDoc((prev: any) => {
+                                                const it = [...(prev.itinerary || [])];
+                                                it[idx] = { ...it[idx], description: val };
+                                                return { ...prev, itinerary: it };
+                                            });
+                                        }} rows={4} />
                                     </div>
                                 ))}
                             </div>
@@ -417,11 +489,11 @@ export default function PartnerTourEditorPage() {
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <div className="text-sm text-secondary-foreground mb-2">Ảnh chính</div>
-                                <ImageUploader value={doc.mainImage} onChange={(url) => setDoc({ ...doc, mainImage: url })} onUploadSuccess={() => toast.success('Đã tải ảnh chính')} onError={(err) => toast.error(err)} />
+                                <ImageUploader value={doc.mainImage} onChange={(url) => setDoc((prev: any) => ({ ...prev, mainImage: url }))} onUploadSuccess={() => toast.success('Đã tải ảnh chính')} onError={(err) => toast.error(err)} />
                             </div>
                             <div>
                                 <div className="text-sm text-secondary-foreground mb-2">Thư viện ảnh</div>
-                                <GalleryUploader value={doc.imageGallery} onChange={(urls) => setDoc({ ...doc, imageGallery: urls })} />
+                                <GalleryUploader value={doc.imageGallery} onChange={(urls) => setDoc((prev: any) => ({ ...prev, imageGallery: urls }))} />
                             </div>
                         </div>
                     </Card>
@@ -434,17 +506,26 @@ export default function PartnerTourEditorPage() {
                             <div className="space-y-4">
                                 <div>
                                     <div className="text-sm text-secondary-foreground">Giá (₫)</div>
-                                    <Input type="number" value={doc.price} onChange={(e) => setDoc({ ...doc, price: Number(e.target.value) })} />
+                                    <Input
+                                        type="text"
+                                        value={new Intl.NumberFormat('vi-VN').format(doc.price || 0)}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            setDoc((prev: any) => ({ ...prev, price: val ? parseInt(val) : 0 }));
+                                        }}
+                                        placeholder="0"
+                                    />
                                 </div>
-                                <div className="flex gap-4">
-                                    <div className="flex-1">
-                                        <div className="text-sm text-secondary-foreground" title="Số khách tối đa mỗi lần tổ chức">Khách/Tour (Max)</div>
-                                        <Input type="number" value={doc.maxGroupSize || 0} onChange={(e) => setDoc({ ...doc, maxGroupSize: Number(e.target.value) })} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="text-sm text-secondary-foreground text-muted-foreground" title="Legacy field">Tổng Inventory</div>
-                                        <Input type="number" value={doc.quantity || 20} onChange={(e) => setDoc({ ...doc, quantity: Number(e.target.value) })} disabled className="bg-muted" />
-                                    </div>
+                                <div>
+                                    <div className="text-sm text-secondary-foreground" title="Số khách tối đa mỗi lần tổ chức">Khách/Tour (Max)</div>
+                                    <Input
+                                        type="text"
+                                        value={doc.maxGroupSize || 0}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            setDoc((prev: any) => ({ ...prev, maxGroupSize: val ? parseInt(val) : 0 }));
+                                        }}
+                                    />
                                 </div>
 
                                 <div className="border border-orange-200 bg-orange-50 dark:bg-orange-950/20 p-3 rounded text-sm text-orange-700 dark:text-orange-300">
@@ -455,13 +536,82 @@ export default function PartnerTourEditorPage() {
                             {/* Start Dates Selector */}
                             <div className="border rounded-lg p-4 bg-background">
                                 <div className="text-sm font-semibold mb-2">Lịch khởi hành (Start Dates)</div>
-                                <div className="text-xs text-muted-foreground mb-2">Chọn những ngày tour sẽ được tổ chức.</div>
-                                <div className="flex justify-center">
+                                <div className="text-xs text-muted-foreground mb-4">
+                                    Chọn thủ công hoặc dùng tính năng chọn nhanh bên dưới:
+                                </div>
+                                <div className="flex gap-2 mb-4 flex-wrap justify-center">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const dates: Date[] = [];
+                                            const today = new Date();
+                                            // Generate for 5 years (~1825 days) to simulate "Forever"
+                                            for (let i = 0; i < 1825; i++) {
+                                                const d = new Date(today);
+                                                d.setDate(today.getDate() + i);
+                                                dates.push(d);
+                                            }
+
+                                            setDoc((prev: any) => {
+                                                const current = prev.start_dates ? prev.start_dates.map((d: any) => new Date(d).toISOString().split('T')[0]) : [];
+                                                const newDates = dates.map(d => d.toISOString().split('T')[0]);
+                                                const merged = Array.from(new Set([...current, ...newDates])).map(s => new Date(s));
+                                                return { ...prev, start_dates: merged };
+                                            });
+                                            toast.success('Đã thêm lịch 5 năm tới');
+                                        }}
+                                    >
+                                        + Hàng ngày
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const dates: Date[] = [];
+                                            const today = new Date();
+                                            // Generate for 5 years (~1825 days)
+                                            for (let i = 0; i < 1825; i++) {
+                                                const d = new Date(today);
+                                                d.setDate(today.getDate() + i);
+                                                if (d.getDay() === 0 || d.getDay() === 6) { // 0=Sun, 6=Sat
+                                                    dates.push(d);
+                                                }
+                                            }
+                                            setDoc((prev: any) => {
+                                                const current = prev.start_dates ? prev.start_dates.map((d: any) => new Date(d).toISOString().split('T')[0]) : [];
+                                                const newDates = dates.map(d => d.toISOString().split('T')[0]);
+                                                const merged = Array.from(new Set([...current, ...newDates])).map(s => new Date(s));
+                                                return { ...prev, start_dates: merged };
+                                            });
+                                            toast.success('Đã thêm cuối tuần (5 năm tới)');
+                                        }}
+                                    >
+                                        + Cuối tuần
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setDoc((prev: any) => ({ ...prev, start_dates: [] }));
+                                            toast.success('Đã xóa hết lịch');
+                                        }}
+                                    >
+                                        Xóa hết
+                                    </Button>
+                                </div>
+                                <div className="flex justify-center bg-card rounded-md border p-2">
                                     <Calendar
                                         mode="multiple"
                                         selected={doc.start_dates ? doc.start_dates.map((d: any) => new Date(d)) : []}
-                                        onSelect={(dates) => setDoc({ ...doc, start_dates: dates })}
-                                        className="rounded-md border shadow-sm bg-white dark:bg-slate-950"
+                                        onSelect={(dates) => setDoc((prev: any) => ({ ...prev, start_dates: dates }))}
+                                        className="rounded-md"
+                                        classNames={{
+                                            day_selected: "bg-orange-600 text-white hover:bg-orange-600 hover:text-white focus:bg-orange-600 focus:text-white"
+                                        }}
                                     />
                                 </div>
                                 <div className="text-xs text-right mt-2 text-muted-foreground">
@@ -473,11 +623,11 @@ export default function PartnerTourEditorPage() {
                         <div className="grid grid-cols-2 gap-3 mt-4">
                             <div>
                                 <div className="text-sm text-secondary-foreground">Bao gồm</div>
-                                <Textarea value={(doc.inclusions || []).join('\n')} onChange={(e) => setDoc({ ...doc, inclusions: e.target.value.split('\n').filter(Boolean) })} rows={4} />
+                                <Textarea value={(doc.inclusions || []).join('\n')} onChange={(e) => setDoc((prev: any) => ({ ...prev, inclusions: e.target.value.split('\n').filter(Boolean) }))} rows={4} />
                             </div>
                             <div>
                                 <div className="text-sm text-secondary-foreground">Không bao gồm</div>
-                                <Textarea value={(doc.exclusions || []).join('\n')} onChange={(e) => setDoc({ ...doc, exclusions: e.target.value.split('\n').filter(Boolean) })} rows={4} />
+                                <Textarea value={(doc.exclusions || []).join('\n')} onChange={(e) => setDoc((prev: any) => ({ ...prev, exclusions: e.target.value.split('\n').filter(Boolean) }))} rows={4} />
                             </div>
                         </div>
                     </Card>

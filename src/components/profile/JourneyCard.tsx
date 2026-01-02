@@ -1,39 +1,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrencyVND, formatDate } from "@/utils/format";
+import { formatCurrencyVND } from "@/utils/format";
 import { ResilientImage } from "@/components/ui/ResilientImage";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { translateStatus } from "@/utils/translation";
+import { Plane, Hotel, Bus, Train, MapPin, CalendarDays, Ticket } from "lucide-react";
 
-interface JourneyDestination {
-  _id: string;
-  name: string;
-}
-
-interface JourneyTour {
-  _id: string;
-  title: string;
-  mainImage?: string | null;
-  destination?: JourneyDestination | null;
-}
-
-// Update interface to match what backend sends in profiles
 interface JourneyItem {
   _id: string;
   status: string;
   bookingDate: string;
   participants: number;
   totalPrice: number;
-  // Flexible structure to handle both Tour object and flat fields
   items?: any;
   tour?: any;
   partnerService?: any;
   tourTitle?: string;
   mainImage?: string;
   destination?: string;
-  type?: string;
+  type?: string; // 'tour', 'hotel', 'flight', 'train', 'bus'
   checkInDate?: string;
+  serviceInfo?: any; // Add serviceInfo to interface if needed
 }
 
 interface JourneyCardProps {
@@ -42,19 +29,47 @@ interface JourneyCardProps {
 
 const JourneyCard = ({ journey }: JourneyCardProps) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
-  // Normalize data access
-  const title = journey.tourTitle || journey.tour?.title || journey.partnerService?.name || 'Dịch vụ';
-  // Use a generic travel placeholder if image is missing
-  const image = journey.mainImage ||
+  // 1. Determine Title & Type
+  // PRIORITY: serviceInfo snapshot (Original Data) > References > Fallback
+  let title = journey.serviceInfo?.title || journey.tourTitle || journey.tour?.title || journey.partnerService?.name || '';
+  const type = journey.type || 'tour';
+
+  if (!title) {
+    if (type === 'hotel') title = 'Đặt phòng khách sạn';
+    else if (type === 'flight') title = 'Vé máy bay';
+    else if (type === 'train') title = 'Vé tàu hỏa';
+    else if (type === 'bus') title = 'Vé xe khách';
+    else title = 'Dịch vụ du lịch';
+  }
+
+  // 2. Determine Image
+  let image = journey.serviceInfo?.image || journey.mainImage ||
     journey.tour?.mainImage ||
     journey.partnerService?.image ||
-    (journey.partnerService?.images && journey.partnerService.images[0]) ||
-    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=800&auto=format&fit=crop';
-  const location = journey.destination || journey.tour?.destination?.name || (journey.type === 'hotel' ? 'Khách sạn' : 'Điểm đến khác');
+    (journey.partnerService?.images && journey.partnerService.images[0]);
+
+  // Fallback images based on type
+  if (!image) {
+    if (type === 'hotel') image = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop';
+    else if (type === 'flight') image = 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=600&auto=format&fit=crop';
+    else if (type === 'train') image = 'https://images.unsplash.com/photo-1474487548417-781cb714d225?q=80&w=600&auto=format&fit=crop';
+    else if (type === 'bus') image = 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=600&auto=format&fit=crop';
+    else image = 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=600&auto=format&fit=crop'; // General travel
+  }
+
+  // 3. Determine Location / Subtext
+  const location = journey.destination || journey.tour?.destination?.name || '';
+  let subText = location;
+  if (!subText) {
+    if (type === 'hotel') subText = 'Lưu trú';
+    else if (type === 'flight') subText = 'Di chuyển hàng không';
+    else subText = 'Trải nghiệm';
+  }
 
   // Time Logic
-  const checkInDate = journey.checkInDate ? new Date(journey.checkInDate) : new Date(journey.bookingDate); // Fallback to booking date if missing (unsafe but prevents crash)
+  const checkInDate = journey.checkInDate ? new Date(journey.checkInDate) : new Date(journey.bookingDate);
   const isPast = new Date() >= checkInDate;
 
   // Cancellation Deadline: 24h before CheckIn
@@ -63,17 +78,15 @@ const JourneyCard = ({ journey }: JourneyCardProps) => {
   const canCancel = new Date() < cancelDeadline;
 
   // Review Eligibility: Trip Started OR Completed
-  // NOTE: User requested "After deadline, cancel becomes review".
   const canReview = isPast || journey.status === 'completed';
 
-  // Status Translation Helper
   const getStatusLabel = (s: string) => {
     const map: Record<string, string> = {
       'pending': 'Chờ duyệt',
       'confirmed': 'Đã xác nhận',
       'completed': 'Hoàn thành',
       'cancelled': 'Đã hủy',
-      'provisional': 'Chờ thanh toán', // Assuming provisional means pending payment/confirmation
+      'provisional': 'Chờ thanh toán',
       'refunded': 'Đã hoàn tiền'
     };
     return map[s] || s;
@@ -85,88 +98,101 @@ const JourneyCard = ({ journey }: JourneyCardProps) => {
     return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
   }
 
+  const getTypeIcon = () => {
+    switch (type) {
+      case 'tour': return <MapPin className="w-4 h-4" />;
+      case 'hotel': return <Hotel className="w-4 h-4" />;
+      case 'flight': return <Plane className="w-4 h-4" />;
+      case 'train': return <Train className="w-4 h-4" />;
+      case 'bus': return <Bus className="w-4 h-4" />;
+      default: return <Ticket className="w-4 h-4" />;
+    }
+  }
+
   return (
-    <Link to={`/profile/bookings/${journey._id}`}>
-      <Card className="hover:shadow-md transition-shadow overflow-hidden text-left h-full flex flex-col group">
-        <div className="relative h-40 overflow-hidden">
-          <ResilientImage
-            src={image}
-            alt={title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          <Badge className={`absolute top-2 right-2 ${getStatusColor(journey.status)} border-none`}>
-            {getStatusLabel(journey.status)}
-          </Badge>
+    <Card
+      className="hover:shadow-md transition-shadow overflow-hidden text-left h-full flex flex-col group cursor-pointer"
+      onClick={() => navigate(`/profile/bookings/${journey._id}`)}
+    >
+      <div className="relative h-40 overflow-hidden">
+        <ResilientImage
+          src={image}
+          alt={title}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        <Badge className={`absolute top-2 right-2 ${getStatusColor(journey.status)} border-none`}>
+          {getStatusLabel(journey.status)}
+        </Badge>
+        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+          {getTypeIcon()}
+          <span className="capitalize">{type === 'tour' ? 'Tour' : type}</span>
         </div>
+      </div>
 
-        <CardHeader className="pb-2 flex-1">
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
-              {location}
+      <CardHeader className="pb-2 flex-1">
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+            {subText}
+          </p>
+          <CardTitle className="text-lg font-bold line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+            {title}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="space-y-3">
+          <div className="h-px bg-border w-full" />
+
+          <div className="flex justify-between items-center text-sm mb-2">
+            <span className="text-muted-foreground flex items-center gap-1">
+              <CalendarDays className="w-3.5 h-3.5" />
+              Ngày đặt:
+            </span>
+            <span>{new Date((journey as any).bookingDate).toLocaleDateString("vi-VN")}</span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
+              <span>👥 {journey.participants} khách</span>
+            </div>
+            <p className="text-base font-bold text-primary">
+              {formatCurrencyVND(journey.totalPrice)}
             </p>
-            <CardTitle className="text-lg font-bold line-clamp-2 leading-tight group-hover:text-primary transition-colors">
-              {title}
-            </CardTitle>
           </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-3">
-            {/* Divider */}
-            <div className="h-px bg-border w-full" />
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Khởi hành:</span>
-              <span className="font-medium text-primary">
-                {formatDate(journey.checkInDate || journey.bookingDate)}
-              </span>
+          {/* Actions: Cancel */}
+          {['pending', 'confirmed'].includes(journey.status) && canCancel && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <div className="pt-2 border-t mt-2">
+                <CancelButton id={journey._id} />
+              </div>
             </div>
+          )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
-                <span>👥 {journey.participants} khách</span>
+          {/* Actions: Review */}
+          {['confirmed', 'completed'].includes(journey.status) && canReview && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <div className="pt-2 border-t mt-2">
+                {(() => {
+                  const tourId = journey.tour?._id || (typeof journey.tour === 'string' ? journey.tour : null);
+                  if (tourId && (!journey.type || journey.type === 'tour')) {
+                    return (
+                      <Link to={`/write-review/${tourId}`} className="w-full">
+                        <Button variant="outline" size="sm" className="w-full text-xs h-8 border-primary text-primary hover:bg-primary hover:text-white">
+                          Viết đánh giá
+                        </Button>
+                      </Link>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
-              <p className="text-base font-bold text-primary">
-                {formatCurrencyVND(journey.totalPrice)}
-              </p>
             </div>
-
-            {/* Actions: Cancel (Before Deadline) */}
-            {['pending', 'confirmed'].includes(journey.status) && canCancel && (
-              <div onClick={(e) => e.preventDefault()}>
-                <div className="pt-2 border-t mt-2">
-                  <CancelButton id={journey._id} />
-                </div>
-              </div>
-            )}
-
-            {/* Actions: Review (After Trip Started or Completed) - IF NOT CANCELLED */}
-            {['confirmed', 'completed'].includes(journey.status) && canReview && (
-              <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                <div className="pt-2 border-t mt-2">
-                  {(() => {
-                    // Safely get Tour ID
-                    const tourId = journey.tour?._id || (typeof journey.tour === 'string' ? journey.tour : null);
-
-                    // Only show Review button for Tours with valid ID
-                    if (tourId && (!journey.type || journey.type === 'tour')) {
-                      return (
-                        <Link to={`/experience/${tourId}?review=true`} className="w-full">
-                          <Button variant="outline" size="sm" className="w-full text-xs h-8 border-primary text-primary hover:bg-primary hover:text-white">
-                            Viết đánh giá
-                          </Button>
-                        </Link>
-                      );
-                    }
-                    return null;
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

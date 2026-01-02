@@ -23,12 +23,14 @@ interface ServiceItem {
     address?: string;
     route?: string;
     rating: number; // usually read-only or managed separately
-    status: 'active' | 'inactive';
+    status: 'active' | 'inactive' | 'pending' | 'rejected';
     quantity?: number; // Total quantity
     image: string;
     images: string[];
     description?: string;
+    duration?: string; // Added duration
     facilities: string[];
+    departureTimes?: string[]; // For Transport
     inclusions: string[];
     exclusions: string[];
     roomTypes: {
@@ -54,7 +56,7 @@ export default function PartnerServiceEditorPage() {
         type: 'hotel',
         name: '',
         price: 0,
-        status: 'active',
+        status: 'pending',
         image: '',
         images: [],
         rating: 0,
@@ -314,15 +316,27 @@ export default function PartnerServiceEditorPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Trạng thái</Label>
-                                <Select value={service.status} onValueChange={(v: any) => setService({ ...service, status: v })}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="active">Hoạt động</SelectItem>
-                                        <SelectItem value="inactive">Tạm ẩn</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <div className="flex items-center gap-2">
+                                    <Badge variant={service.status === 'active' ? 'default' : service.status === 'pending' ? 'outline' : 'secondary'}
+                                        className={service.status === 'active' ? 'bg-green-600' : service.status === 'pending' ? 'text-yellow-600 border-yellow-600' : ''}>
+                                        {service.status === 'active' ? 'Đang hoạt động' :
+                                            service.status === 'pending' ? 'Chờ duyệt' :
+                                                service.status === 'rejected' ? 'Từ chối' : 'Tạm ẩn'}
+                                    </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    * Dịch vụ mới hoặc cập nhật quan trọng cần Admin duyệt trước khi hiển thị.
+                                </p>
+                                {service.status === 'active' && (
+                                    <Button variant="outline" size="sm" onClick={() => setService({ ...service, status: 'inactive' })} className="mt-2 w-full text-red-500 hover:text-red-600">
+                                        Tạm ngưng hoạt động
+                                    </Button>
+                                )}
+                                {service.status === 'inactive' && (
+                                    <Button variant="outline" size="sm" onClick={() => setService({ ...service, status: 'active' })} className="mt-2 w-full">
+                                        Mở lại hoạt động (Cần duyệt)
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </Card>
@@ -459,6 +473,51 @@ export default function PartnerServiceEditorPage() {
                             </div>
                         </div>
                     </Card>
+
+                    {/* Departure Times for Transport */}
+                    {service.type !== 'hotel' && (
+                        <Card className="p-6 space-y-4">
+                            <h3 className="font-semibold text-lg">Khung giờ khởi hành (Departure Times)</h3>
+                            <div className="space-y-2">
+                                <Label>Thêm giờ khởi hành (VD: 08:00)</Label>
+                                <div className="flex gap-2">
+                                    <Input type="time" id="time-input" />
+                                    <Button type="button" onClick={() => {
+                                        const input = document.getElementById('time-input') as HTMLInputElement;
+                                        if (input.value) {
+                                            if (!service.departureTimes?.includes(input.value)) {
+                                                setService(prev => ({ ...prev, departureTimes: [...(prev.departureTimes || []), input.value].sort() }));
+                                            }
+                                            input.value = '';
+                                        }
+                                    }}>Thêm</Button>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {(service.departureTimes && service.departureTimes.length > 0) ? (
+                                        service.departureTimes.map((time, idx) => (
+                                            <Badge key={idx} variant="outline" className="pl-2 pr-1 py-1 flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                                                {time} <Trash2 className="h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => {
+                                                    setService(prev => ({ ...prev, departureTimes: prev.departureTimes?.filter(t => t !== time) }));
+                                                }} />
+                                            </Badge>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-yellow-600 italic">Chưa có giờ khởi hành. (Mặc định sẽ là cả ngày)</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 pt-4 border-t">
+                                <Label>Thời gian hành trình (Duration)</Label>
+                                <Input
+                                    placeholder="VD: 2h 30m"
+                                    value={service.duration || ''}
+                                    onChange={(e) => setService({ ...service, duration: e.target.value })}
+                                />
+                                <p className="text-xs text-muted-foreground">Thời gian này sẽ được dùng để tính giờ đến nơi.</p>
+                            </div>
+                        </Card>
+                    )}
 
                     <Card className="p-6 space-y-4">
                         <h3 className="font-semibold text-lg">Thông tin thêm</h3>

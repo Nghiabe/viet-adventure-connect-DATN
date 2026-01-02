@@ -39,6 +39,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
+const WriteReviewPage = lazy(() => import('./pages/WriteReviewPage'));
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,7 @@ const App = () => (
                 <Route path="/hotels/:id" element={<HotelDetailPage />} />
                 <Route path="/flights/search" element={<FlightsResultsPage />} />
                 <Route path="/experience/:id" element={<ExperienceDetail />} />
+                <Route path="/write-review/:tourId" element={<WriteReviewPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/booking/success" element={<BookingSuccessPage />} />

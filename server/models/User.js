@@ -30,7 +30,12 @@ const UserSchema = new mongoose.Schema(
             bankAccountNumber: { type: String },
             emailNotifications: { type: Boolean, default: true },
             bookingAlerts: { type: Boolean, default: true }
-        }
+        },
+        // Enhanced Profile Fields
+        phone: { type: String, trim: true },
+        address: { type: String, trim: true },
+        bio: { type: String, maxlength: 500 },
+        birthDate: { type: Date }
     },
     { timestamps: true }
 );

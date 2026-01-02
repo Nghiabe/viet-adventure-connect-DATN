@@ -30,10 +30,13 @@ router.put('/:id/cancel', requireAuth, async (req, res) => {
             return res.status(400).json({ success: false, error: `Không thể hủy đơn đang ở trạng thái ${booking.status}` });
         }
 
-        // Optional: Check cancellation policy (e.g. 24h before checkIn)
-        // For simplicity, allow cancellation if status is pending/confirmed and date is future.
-        if (booking.checkInDate && new Date(booking.checkInDate) < new Date()) {
-            return res.status(400).json({ success: false, error: 'Không thể hủy tour đã diễn ra hoặc đang diễn ra' });
+        // Cancellation Policy: Must be at least 24 hours before check-in/start date
+        const checkInTime = booking.checkInDate ? new Date(booking.checkInDate).getTime() : new Date(booking.bookingDate).getTime();
+        const now = new Date().getTime();
+        const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+        if (checkInTime - now < ONE_DAY_MS) {
+            return res.status(400).json({ success: false, error: 'Chỉ có thể hủy đơn trước ít nhất 24 giờ so với thời gian bắt đầu.' });
         }
 
         // Update status

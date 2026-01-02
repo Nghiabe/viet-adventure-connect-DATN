@@ -225,7 +225,7 @@ const ExperienceDetail = () => {
         tourId={tour?._id || ''}
         tourName={tour?.title || ''}
         duration={tour?.duration}
-        departureDate={selectedDate || new Date()}
+        departureDate={selectedDate!}
         participants={{ adults, children }}
         unitPrice={price}
       />
@@ -616,8 +616,34 @@ const ExperienceDetail = () => {
                         mode="single"
                         selected={selectedDate}
                         onSelect={(date) => { setSelectedDate(date); setIsDatePickerOpen(false); }}
-                        disabled={(date) => date < new Date()}
+                        disabled={(date) => {
+                          const now = new Date();
+                          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+                          // Disable past days
+                          if (date < today) return true;
+
+                          // Disable today if it's past 08:00
+                          if (date.getTime() === today.getTime() && now.getHours() >= 8) {
+                            return true;
+                          }
+
+                          // Check against start_dates
+                          const startDates = (tour as any)?.start_dates || [];
+                          if (startDates.length > 0) {
+                            const dateString = format(date, 'yyyy-MM-dd');
+                            const isAvailable = startDates.some((sd: string | Date) => {
+                              return format(new Date(sd), 'yyyy-MM-dd') === dateString;
+                            });
+                            return !isAvailable;
+                          }
+
+                          return false;
+                        }}
                         locale={vi}
+                        classNames={{
+                          day_selected: "bg-orange-600 text-white hover:bg-orange-600 hover:text-white focus:bg-orange-600 focus:text-white"
+                        }}
                       />
                     </PopoverContent>
                   </Popover>

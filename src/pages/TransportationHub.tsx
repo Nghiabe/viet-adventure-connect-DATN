@@ -22,8 +22,38 @@ const trainResults = [];
 const busResults = [];
 
 
+// Helper to add duration to time
+const calculateArrivalTime = (startTime: string, durationStr: string) => {
+  if (!startTime) return '--:--';
+  if (!durationStr) return '--:--';
+
+  try {
+    const [startH, startM] = startTime.split(':').map(Number);
+    const durationParts = durationStr.match(/(\d+)h\s*(\d*)m?/);
+
+    if (!durationParts) return '--:--';
+
+    const durH = parseInt(durationParts[1] || '0');
+    const durM = parseInt(durationParts[2] || '0');
+
+    let endH = startH + durH;
+    let endM = startM + durM;
+
+    if (endM >= 60) {
+      endH += Math.floor(endM / 60);
+      endM = endM % 60;
+    }
+
+    endH = endH % 24;
+
+    return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+  } catch (e) {
+    return '--:--';
+  }
+};
+
 // Result Card Component
-const ResultCard = ({ result, type, onSelect, onChat }: { result: any; type: 'flight' | 'train' | 'bus'; onSelect: (result: any) => void; onChat: (result: any) => void }) => {
+const ResultCard = ({ result, type, onSelect, onChat, bookingDate }: { result: any; type: 'flight' | 'train' | 'bus'; onSelect: (result: any) => void; onChat: (result: any) => void; bookingDate?: Date }) => {
   const getTypeIcon = () => {
     switch (type) {
       case 'flight': return <Plane className="h-5 w-5" />;
@@ -54,26 +84,84 @@ const ResultCard = ({ result, type, onSelect, onChat }: { result: any; type: 'fl
         </div>
 
         {/* Journey Info */}
-        <div className="flex-1 flex items-center justify-center gap-8 text-center">
-          <div>
-            <div className="text-xl font-bold">{result.departure.time}</div>
-            <div className="text-sm text-muted-foreground">{result.departure.station || result.departure.airport || 'Điểm đi'}</div>
-          </div>
-          <div className="flex flex-col items-center gap-1 min-w-[120px]">
-            <div className="text-xs text-muted-foreground">{result.duration}</div>
-            <div className="w-full flex items-center gap-1">
-              <div className="h-[1px] flex-1 bg-border relative">
-                <div className="absolute right-0 -top-0.5 w-1 h-1 rounded-full bg-border" />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
+          {/* Duration and Route */}
+          <div className="flex items-center gap-6 text-muted-foreground text-sm w-full justify-center">
+            <div className="text-right flex-1">
+              <div className="font-semibold text-foreground text-base">{result.departure.station || 'Điểm đi'}</div>
+            </div>
+
+            <div className="flex flex-col items-center gap-1 min-w-[120px]">
+              <div className="flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
+                <Clock className="w-3 h-3" /> {result.duration}
               </div>
-              {getTypeIcon()}
-              <div className="h-[1px] flex-1 bg-border relative">
-                <div className="absolute left-0 -top-0.5 w-1 h-1 rounded-full bg-border" />
+              <div className="w-full flex items-center gap-1">
+                <div className="h-[1px] flex-1 bg-border relative">
+                  <div className="absolute right-0 -top-0.5 w-1 h-1 rounded-full bg-border" />
+                </div>
+                {getTypeIcon()}
+                <div className="h-[1px] flex-1 bg-border relative">
+                  <div className="absolute left-0 -top-0.5 w-1 h-1 rounded-full bg-border" />
+                </div>
               </div>
             </div>
+
+            <div className="text-left flex-1">
+              <div className="font-semibold text-foreground text-base">{result.arrival.station || 'Điểm đến'}</div>
+            </div>
           </div>
-          <div>
-            <div className="text-xl font-bold">{result.arrival.time}</div>
-            <div className="text-sm text-muted-foreground">{result.arrival.station || result.arrival.airport || 'Điểm đến'}</div>
+
+          {/* Departure Times List */}
+          <div className="w-full">
+            <p className="text-xs text-muted-foreground mb-2 text-left">Chọn giờ khởi hành:</p>
+            <div className="flex flex-wrap gap-2 justify-start">
+              {result.departureTimes && result.departureTimes.length > 0 ? (
+                result.departureTimes.map((time: string) => {
+                  const now = new Date();
+                  let isPast = false;
+
+                  if (bookingDate && bookingDate.toDateString() === now.toDateString()) {
+                    const [h, m] = time.split(':').map(Number);
+                    const requestDate = new Date(now);
+                    requestDate.setHours(h, m, 0, 0);
+                    const cutoffTime = new Date(now.getTime() + 60 * 60 * 1000);
+
+                    if (requestDate < cutoffTime) isPast = true;
+                  }
+
+                  return (
+                    <Button
+                      key={time}
+                      variant="outline"
+                      size="sm"
+                      disabled={isPast}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isPast) onSelect({ ...result, _selectedTime: time });
+                      }}
+                      className={`h-9 px-4 border-2 transition-all font-semibold ${isPast
+                          ? 'opacity-50 bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                          : 'hover:border-primary hover:bg-primary/5 hover:text-primary'
+                        }`}
+                    >
+                      {time}
+                    </Button>
+                  );
+                })
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect({ ...result, _selectedTime: result.departure.time });
+                  }}
+                  className="h-9 px-4 border-2 hover:border-primary hover:bg-primary/5 hover:text-primary transition-all font-semibold"
+                >
+                  {result.departure.time}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -163,7 +251,8 @@ const TransportationHub = () => {
 
     const params = new URLSearchParams({
       date: departureDate ? format(departureDate, 'yyyy-MM-dd') : '',
-      passengers: passengers.toString()
+      passengers: passengers.toString(),
+      time: result._selectedTime || result.departure.time // Pass the selected time if specific button clicked
     });
 
     // Navigate to detail page
@@ -344,6 +433,7 @@ const TransportationHub = () => {
                       type={activeTab === 'buses' ? 'bus' : activeTab.slice(0, -1) as 'flight' | 'train'}
                       onSelect={handleSelect}
                       onChat={handleChat}
+                      bookingDate={departureDate}
                     />
                   ))}
                 </div>

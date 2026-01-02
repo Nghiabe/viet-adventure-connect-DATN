@@ -14,18 +14,39 @@ const generateToken = (userId, role) => {
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, accountType } = req.body;
 
         if (!name || !email || !password) {
-            return res.status(400).json({ success: false, error: 'Please provide all required fields' });
+            return res.status(400).json({ success: false, error: 'Vui lòng điền đầy đủ thông tin' });
         }
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ success: false, error: 'Email already in use' });
+            return res.status(400).json({ success: false, error: 'Email đã được sử dụng' });
         }
 
-        const user = await User.create({ name, email, password });
+        // Map accountType to role, allow only 'user' or 'partner' from public registration
+        const role = accountType === 'partner' ? 'partner' : 'user';
+
+        // Set status to pending_approval for partners
+        const status = role === 'partner' ? 'pending_approval' : 'active';
+
+        const user = await User.create({ name, email, password, role, status });
+
+        // If pending approval, still generate token but frontend will handle redirection
+        // if (user.status === 'pending_approval') {
+        //     return res.status(201).json({
+        //         success: true,
+        //         message: 'Đăng ký thành công. Vui lòng chờ phê duyệt đối tác.',
+        //         data: {
+        //             _id: user._id,
+        //             name: user.name,
+        //             email: user.email,
+        //             role: user.role,
+        //             status: user.status
+        //         }
+        //     });
+        // }
 
         const token = generateToken(user._id, user.role);
 
@@ -42,6 +63,7 @@ router.post('/register', async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                status: user.status,
                 token
             }
         });
@@ -57,17 +79,21 @@ router.post('/login', async (req, res) => {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.status(400).json({ success: false, error: 'Please provide email and password' });
+            return res.status(400).json({ success: false, error: 'Vui lòng nhập email và mật khẩu' });
         }
 
         const user = await User.findOne({ email });
         if (!user || !(await user.comparePassword(password))) {
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Email hoặc mật khẩu không đúng' });
         }
 
         if (user.status === 'suspended') {
-            return res.status(403).json({ success: false, error: 'Account suspended' });
+            return res.status(403).json({ success: false, error: 'Tài khoản đã bị vô hiệu hóa' });
         }
+
+        // if (user.status === 'pending_approval') {
+        //     return res.status(403).json({ success: false, error: 'Tài khoản đang chờ phê duyệt' });
+        // }
 
         const token = generateToken(user._id, user.role);
 
@@ -84,6 +110,7 @@ router.post('/login', async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                status: user.status,
                 token
             }
         });
@@ -96,7 +123,7 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
     res.clearCookie('auth_token');
-    res.json({ success: true, message: 'Logged out successfully' });
+    res.json({ success: true, message: 'Đăng xuất thành công' });
 });
 
 // GET /api/auth/me
@@ -104,7 +131,7 @@ router.get('/me', requireAuth, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId).select('-password');
         if (!user) {
-            return res.status(404).json({ success: false, error: 'User not found' });
+            return res.status(404).json({ success: false, error: 'Không tìm thấy người dùng' });
         }
         res.json({ success: true, data: user });
     } catch (error) {

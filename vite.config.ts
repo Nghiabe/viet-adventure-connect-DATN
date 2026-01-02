@@ -3049,6 +3049,12 @@ export default defineConfig(({ mode }) => {
     ].filter(Boolean) as any,
     server: {
       proxy: {
+        // Proxy /api/admin/* to Backend at 4000
+        '/api/admin': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
         // Proxy /api/partner/* to Backend at 4000
         '/api/partner': {
           target: 'http://localhost:4000',
@@ -3075,6 +3081,12 @@ export default defineConfig(({ mode }) => {
         },
         // Proxy /api/bookings/* to Backend at 4000
         '/api/bookings': {
+          target: 'http://localhost:4000',
+          changeOrigin: true,
+          secure: false
+        },
+        // Proxy /api/reviews/* to Backend at 4000
+        '/api/reviews': {
           target: 'http://localhost:4000',
           changeOrigin: true,
           secure: false

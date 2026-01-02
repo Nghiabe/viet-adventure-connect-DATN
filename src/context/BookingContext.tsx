@@ -29,6 +29,7 @@ export interface PreBookingDetails {
   destination?: { code?: string; city?: string; station?: string; time: string };
   quantity?: number;
   class?: string;
+  departureTime?: string; // New field for specific transport time
   stops?: number;
 }
 

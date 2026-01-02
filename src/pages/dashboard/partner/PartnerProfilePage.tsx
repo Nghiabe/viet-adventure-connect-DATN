@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import apiClient from '@/services/apiClient';
 import { Loader2, Upload } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { uploadImage, validateImageFile } from '@/services/uploadService';
 
 interface PartnerProfile {
     companyName: string;
@@ -22,9 +23,12 @@ interface PartnerProfile {
 
 export default function PartnerProfilePage() {
     const { t } = useTranslation();
-    const { user } = useAuth(); // Removed refreshUser pending verification
+    const { user } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [uploadingLogo, setUploadingLogo] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const [profile, setProfile] = useState<PartnerProfile>({
         companyName: '',
         description: '',
@@ -41,7 +45,6 @@ export default function PartnerProfilePage() {
     const fetchProfile = async () => {
         setLoading(true);
         try {
-            // Cast response to any to allow flexible data access
             const res = await apiClient.get('/partner/profile') as any;
             if (res.success && res.data) {
                 setProfile({
@@ -55,7 +58,6 @@ export default function PartnerProfilePage() {
             }
         } catch (error) {
             console.error('Failed to fetch profile', error);
-            // Fallback to user data if API fails or doesn't exist yet
             setProfile(prev => ({ ...prev, companyName: user?.name || '', logo: user?.avatar || '' }));
         } finally {
             setLoading(false);
@@ -67,14 +69,50 @@ export default function PartnerProfilePage() {
         setProfile(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleLogoClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const validation = validateImageFile(file);
+            if (!validation.isValid) {
+                toast.error(validation.error);
+                return;
+            }
+
+            setUploadingLogo(true);
+            try {
+                const url = await uploadImage(file);
+                setProfile(prev => ({ ...prev, logo: url }));
+                toast.success('Upload logo thành công');
+            } catch (error) {
+                toast.error('Lỗi khi upload logo');
+            } finally {
+                setUploadingLogo(false);
+            }
+        }
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Basic Validation
+        if (!profile.companyName.trim()) {
+            toast.error('Tên doanh nghiệp không được để trống');
+            return;
+        }
+        if (profile.phoneNumber && !/^[0-9+]{9,15}$/.test(profile.phoneNumber)) {
+            toast.error('Số điện thoại không hợp lệ');
+            return;
+        }
+
         setSaving(true);
         try {
             const res = await apiClient.put('/partner/profile', profile) as any;
             if (res.success) {
                 toast.success(t('partner_profile.save_success', 'Cập nhật hồ sơ thành công'));
-                // refreshUser(); 
             } else {
                 toast.error(res.message || t('partner_profile.save_error', 'Không thể lưu hồ sơ'));
             }
@@ -110,20 +148,28 @@ export default function PartnerProfilePage() {
                                         <AvatarImage src={profile.logo} />
                                         <AvatarFallback>{profile.companyName?.[0] || 'P'}</AvatarFallback>
                                     </Avatar>
-                                    <Button variant="outline" size="sm" type="button">
-                                        <Upload className="w-4 h-4 mr-2" />
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                    />
+                                    <Button variant="outline" size="sm" type="button" onClick={handleLogoClick} disabled={uploadingLogo}>
+                                        {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
                                         {t('common.upload_logo', 'Tải logo')}
                                     </Button>
                                 </div>
                                 <div className="flex-1 space-y-4">
                                     <div className="grid gap-2">
-                                        <Label htmlFor="companyName">{t('partner_profile.company_name', 'Tên doanh nghiệp / Đối tác')}</Label>
+                                        <Label htmlFor="companyName">{t('partner_profile.company_name', 'Tên doanh nghiệp / Đối tác')} <span className="text-red-500">*</span></Label>
                                         <Input
                                             id="companyName"
                                             name="companyName"
                                             value={profile.companyName}
                                             onChange={handleChange}
                                             placeholder="VD: Viet Adventure Travel"
+                                            required
                                         />
                                     </div>
                                     <div className="grid gap-2">

@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react-swc';
 import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import mongoose from 'mongoose';
 import { handleCreateBooking } from './src/lib/api/bookingHandler';
-import { verifyJwt } from './src/lib/auth/jwt';
+// import { verifyJwt } from './src/lib/auth/jwt';
 
 // Import Mongoose models and the DB connection utility
 import Destination from './src/models/Destination';
@@ -20,6 +20,7 @@ import UserBadge from './src/models/UserBadge';
 import dbConnect from './src/lib/dbConnect';
 import { shareApiPlugin } from './src/plugins/shareApiPlugin';
 import { notificationApiPlugin } from './src/plugins/notificationApiPlugin';
+import { storyInteractionPlugin } from './src/plugins/storyInteractionPlugin';
 
 
 // --- Data Definitions (Kept separate for clarity) ---
@@ -107,6 +108,7 @@ function profileApiPlugin() {
             const { parse } = await import('cookie');
             const cookies = parse(req.headers.cookie || '');
             const token = cookies['auth_token'];
+            const { verifyJwt } = await import('./src/lib/auth/jwt');
             const payload = token ? verifyJwt(token) : null;
             if (!payload || !payload.userId) { res.statusCode = 401; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ success: false, error: 'Authentication required.' })); }
 
@@ -246,6 +248,7 @@ function profileApiPlugin() {
             const { parse } = await import('cookie');
             const cookies = parse(req.headers.cookie || '');
             const token = cookies['auth_token'];
+            const { verifyJwt } = await import('./src/lib/auth/jwt');
             const payload = token ? verifyJwt(token) : null;
             if (!payload || !payload.userId) {
               res.statusCode = 401; res.setHeader('Content-Type', 'application/json');
@@ -285,6 +288,7 @@ function profileApiPlugin() {
             const { parse } = await import('cookie');
             const cookies = parse(req.headers.cookie || '');
             const token = cookies['auth_token'];
+            const { verifyJwt } = await import('./src/lib/auth/jwt');
             const payload = token ? verifyJwt(token) : null;
             if (!payload || !payload.userId) {
               res.statusCode = 401; res.setHeader('Content-Type', 'application/json');
@@ -338,6 +342,7 @@ function profileApiPlugin() {
             const { parse } = await import('cookie');
             const cookies = parse(req.headers.cookie || '');
             const token = cookies['auth_token'];
+            const { verifyJwt } = await import('./src/lib/auth/jwt');
             const payload = token ? verifyJwt(token) : null;
             if (!payload || !payload.userId) {
               res.statusCode = 401; res.setHeader('Content-Type', 'application/json');
@@ -377,6 +382,7 @@ function profileApiPlugin() {
             const { parse } = await import('cookie');
             const cookies = parse(req.headers.cookie || '');
             const token = cookies['auth_token'];
+            const { verifyJwt } = await import('./src/lib/auth/jwt');
             const payload = token ? verifyJwt(token) : null;
             if (!payload || !payload.userId) {
               res.statusCode = 401; res.setHeader('Content-Type', 'application/json');
@@ -1627,8 +1633,21 @@ function seedApiPlugin() {
               { $match: match },
               { $lookup: { from: 'tours', localField: '_id', foreignField: 'destination', as: 'tours' } },
               { $lookup: { from: 'bookings', localField: 'tours._id', foreignField: 'tour', as: 'bookings' } },
-              { $addFields: { tourCount: { $size: '$tours' }, totalBookings: { $size: '$bookings' }, totalRevenue: { $sum: '$bookings.totalPrice' } } },
-              { $project: { bookings: 0 } },
+              {
+                $addFields: {
+                  tourCount: { $size: '$tours' },
+                  // FIX: If tourCount is 0, force bookings to empty list to prevent matching orphans
+                  actualBookings: {
+                    $cond: {
+                      if: { $eq: [{ $size: '$tours' }, 0] },
+                      then: [],
+                      else: '$bookings'
+                    }
+                  }
+                }
+              },
+              { $addFields: { totalBookings: { $size: '$actualBookings' }, totalRevenue: { $sum: '$actualBookings.totalPrice' } } },
+              { $project: { bookings: 0, actualBookings: 0 } },
               { $sort: { updatedAt: -1 } },
               { $facet: { rows: [{ $skip: (page - 1) * limit }, { $limit: limit }], total: [{ $count: 'count' }] } },
             ];
@@ -1683,7 +1702,7 @@ function seedApiPlugin() {
               geography: body.geography?.trim(),
               mainImage: body.mainImage?.trim(),
               imageGallery: Array.isArray(body.imageGallery) ? body.imageGallery : [],
-              bestTimeToVisit: body.bestTimeToVisit?.trim(),
+              bestTimeToVisit: Array.isArray(body.bestTimeToVisit) ? body.bestTimeToVisit : [],
               essentialTips: Array.isArray(body.essentialTips) ? body.essentialTips : [],
               status: body.status || 'draft'
             };
@@ -2271,7 +2290,11 @@ function homeApiPlugin() {
 
       // POST /api/stories - Create new story
       server.middlewares.use('/api/stories', async (req: any, res: any, next: any) => {
-        if (req.method !== 'POST') {
+        const url = req.originalUrl || req.url || '';
+        // Fix: Strict path check to facilitate sub-routes (like /like, /comments) handled by other plugins
+        const path = url.split('?')[0];
+
+        if (req.method !== 'POST' || path !== '/api/stories') {
           return next();
         }
 
@@ -2870,7 +2893,7 @@ function communityHubApiPlugin() {
               .lean(),
 
             // Latest Stories: Get 5 most recent stories (all statuses)
-            Story.find({})
+            Story.find({ status: 'approved' })
               .sort({ createdAt: -1 })
               .limit(5)
               .populate('author', 'name avatar')
@@ -2878,6 +2901,7 @@ function communityHubApiPlugin() {
 
             // Trending Tags: MongoDB aggregation pipeline
             Story.aggregate([
+              { $match: { status: 'approved' } },
               { $unwind: '$tags' },
               { $group: { _id: '$tags', count: { $sum: 1 } } },
               { $sort: { count: -1 } },
@@ -2887,6 +2911,7 @@ function communityHubApiPlugin() {
 
             // Top Authors: Complex aggregation to get authors with most stories and likes
             Story.aggregate([
+              { $match: { status: 'approved' } },
               {
                 $group: {
                   _id: '$author',
@@ -2917,7 +2942,7 @@ function communityHubApiPlugin() {
             ]),
 
             // Community Stats: Total stories (true total count)
-            Story.estimatedDocumentCount(),
+            Story.countDocuments({ status: 'approved' }),
 
             // Community Stats: Total members (true total count)
             User.estimatedDocumentCount(),
@@ -3045,6 +3070,7 @@ export default defineConfig(({ mode }) => {
       mode === 'development' ? plannerApiPlugin(env) : null,
       mode === 'development' ? shareApiPlugin() : null,
       mode === 'development' ? notificationApiPlugin() : null,
+      mode === 'development' ? storyInteractionPlugin() : null,
 
     ].filter(Boolean) as any,
     server: {

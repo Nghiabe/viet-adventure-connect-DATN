@@ -157,9 +157,22 @@ const getConversation = async (bookingId, userId) => {
 
             // If I am the provider requesting this, or if provider is missing, we should probably add them.
             // But we only have userId here. Let's just check if userId matches providerId and is NOT in participants.
-            if (userId === providerIdStr && !isParticipant) {
+            if (userId.toString() === providerIdStr && !isParticipant) {
                 console.log(`[Auto-Fix] Adding provider ${userId} to conversation ${conversation._id}`);
                 conversation.participants.push(userId);
+                await conversation.save();
+            }
+        }
+
+        // Self-Healing: Ensure the CUSTOMER (Booking User) is in participants
+        // This fixes the 403 Access Denied error if the customer was somehow left out
+        if (booking.user) {
+            const bookingUserId = booking.user._id ? booking.user._id.toString() : booking.user.toString();
+            const isCustomerParticipant = conversation.participants.some(p => p.toString() === bookingUserId);
+
+            if (!isCustomerParticipant) {
+                console.log(`[Auto-Fix] Adding customer ${bookingUserId} to conversation ${conversation._id}`);
+                conversation.participants.push(bookingUserId);
                 await conversation.save();
             }
         }
@@ -330,7 +343,7 @@ router.get('/:bookingId', requireAuth, async (req, res) => {
         const conversation = await getConversation(bookingId, userId);
 
         // Security Check: Is user a participant?
-        const isParticipant = conversation.participants.some(p => p.toString() === userId);
+        const isParticipant = conversation.participants.some(p => p.toString() === userId.toString());
         if (!isParticipant) {
             return res.status(403).json({ error: 'Access denied' });
         }
@@ -366,7 +379,7 @@ router.post('/:bookingId/messages', requireAuth, async (req, res) => {
         const conversation = await getConversation(bookingId, userId);
 
         // Security Check
-        const isParticipant = conversation.participants.some(p => p.toString() === userId);
+        const isParticipant = conversation.participants.some(p => p.toString() === userId.toString());
         if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
 
         // Create Message
@@ -407,7 +420,7 @@ router.delete('/:bookingId', requireAuth, async (req, res) => {
         const conversation = await getConversation(bookingId, userId);
 
         // Security Check
-        const isParticipant = conversation.participants.some(p => p.toString() === userId);
+        const isParticipant = conversation.participants.some(p => p.toString() === userId.toString());
         if (!isParticipant) return res.status(403).json({ error: 'Access denied' });
 
         conversation.status = 'archived';

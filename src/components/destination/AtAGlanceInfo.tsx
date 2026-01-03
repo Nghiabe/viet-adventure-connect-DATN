@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useTranslation } from 'react-i18next';
-import { translateMonth } from '@/utils/translation';
-import { CalendarDays, Lightbulb, MapPin, Clock } from 'lucide-react';
+import { CalendarDays, Lightbulb, MapPin } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface AtAGlanceInfoProps {
   bestTimeToVisit?: string[] | string;
@@ -34,17 +34,36 @@ export function AtAGlanceInfo({ bestTimeToVisit, essentialTips }: AtAGlanceInfoP
             </div>
 
             <div className="pl-6">
-              {(() => {
-                const text = Array.isArray(bestTimeToVisit)
-                  ? bestTimeToVisit.join(', ') // Join array items with comma
-                  : bestTimeToVisit;
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const processTime = (item: string) => {
+                    const months = [
+                      'january', 'february', 'march', 'april', 'may', 'june',
+                      'july', 'august', 'september', 'october', 'november', 'december'
+                    ];
+                    const lowerItem = item.toLowerCase().trim();
+                    if (months.includes(lowerItem)) {
+                      return t(`common.months.${lowerItem}`);
+                    }
+                    return item.charAt(0).toUpperCase() + item.slice(1);
+                  };
 
-                return (
-                  <p className="text-sm text-foreground/90 leading-relaxed bg-muted/30 p-3 rounded-lg border border-border/50">
-                    {text}
-                  </p>
-                );
-              })()}
+                  if (Array.isArray(bestTimeToVisit)) {
+                    return bestTimeToVisit.map((item, index) => (
+                      <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-none font-normal">
+                        {processTime(item)}
+                      </Badge>
+                    ));
+                  }
+
+                  // Fallback for string
+                  return (
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 border-none font-normal">
+                      {processTime(bestTimeToVisit as string)}
+                    </Badge>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         )}
@@ -71,5 +90,3 @@ export function AtAGlanceInfo({ bestTimeToVisit, essentialTips }: AtAGlanceInfoP
     </Card>
   );
 }
-
-

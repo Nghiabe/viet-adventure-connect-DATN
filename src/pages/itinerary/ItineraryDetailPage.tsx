@@ -13,6 +13,7 @@ import { ItineraryTimeline } from '@/components/itinerary/ItineraryTimeline';
 import { SuggestionsSidebar } from '@/components/itinerary/SuggestionsSidebar';
 import { InteractiveRouteMap } from '@/components/itinerary/InteractiveRouteMap';
 import { HotelSection } from '@/components/itinerary/HotelSection';
+import { SelectedToursSection } from '@/components/itinerary/SelectedToursSection';
 import { BudgetSummary } from '@/components/itinerary/BudgetSummary';
 import { ShareModal } from '@/components/common/ShareModal';
 
@@ -53,6 +54,7 @@ const ItineraryDetailPage: React.FC = () => {
     planResult?: any;
     formData?: any;
     selectedTours?: string[];
+    selectedToursData?: any[]; // Full tour objects
     selectedHotel?: string;
     selectedHotelData?: any;  // Full hotel object from hotel agent
   };
@@ -178,6 +180,65 @@ const ItineraryDetailPage: React.FC = () => {
       const tripOverview = parsedData.trip_overview || {};
       const tripSummary = parsedData.trip_summary || {};
 
+      // Calculate Duration
+      const start = new Date(formData?.startDate || new Date());
+      const end = new Date(formData?.endDate || new Date());
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const numberOfNights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+      // Helper: Estimate hotel price if not provided
+      const getHotelPriceEstimate = (style: string) => {
+        if (style === 'budget') return 400000;
+        if (style === 'luxury') return 2500000;
+        return 900000; // mid-range
+      };
+
+      // Prepare Hotel Data
+      let hotelPricePerNight = 0;
+      let hotelData = null;
+
+      if (locationState?.selectedHotelData) {
+        hotelData = locationState.selectedHotelData;
+        // Use provided price or estimate if 0/missing
+        hotelPricePerNight = hotelData.price_per_night || getHotelPriceEstimate(formData?.travelStyle || 'mid-range');
+        // Update price in object if it was missing
+        if (!hotelData.price_per_night) hotelData.price_per_night = hotelPricePerNight;
+      } else if (locationState?.selectedHotel) {
+        hotelPricePerNight = getHotelPriceEstimate(formData?.travelStyle || 'mid-range');
+        hotelData = {
+          name: locationState.selectedHotel,
+          address: formData?.destination,
+          rating: 4.5,
+          price_per_night: hotelPricePerNight,
+          amenities: ['Wifi', 'Pool', 'Breakfast'] // Add some dummy amenities for better UI
+        };
+      }
+
+      const accommodationCost = hotelPricePerNight * numberOfNights;
+
+      // Extract and normalize costs
+      const costBreakdownRaw = tripSummary.cost_breakdown || {};
+      const activitiesCost = costBreakdownRaw.activities || costBreakdownRaw.attractions || 800000; // Fallback if 0
+      const foodCost = costBreakdownRaw.food || 1500000;
+      const transportCost = costBreakdownRaw.transport || 500000;
+      const otherCost = costBreakdownRaw.other || 200000;
+
+      // Calculate Totals
+      const totalEstimated = accommodationCost + activitiesCost + foodCost + transportCost + otherCost;
+      const contingency = Math.round(totalEstimated * 0.1); // 10%
+      const totalHelper = totalEstimated + contingency;
+
+      const travelers = parseInt(formData?.travelers || '1');
+      const perPerson = Math.round(totalHelper / travelers);
+
+      const budgetLimit = formData?.budget === 'budget' ? 2000000 :
+        formData?.budget === 'mid-range' ? 3500000 : 6000000;
+
+      // Scale budget limit by number of people and days if it's too low (Basic heuristic)
+      // The predefined limits seem like 'per person for a short trip'. 
+      // Let's rely on total comparison
+      const isWithinBudget = totalHelper <= (budgetLimit * travelers);
+
       const adaptedItinerary = {
         _id: 'preview',
         name: `Hành trình khám phá ${tripOverview.destination || formData?.destination || 'Việt Nam'}`,
@@ -192,18 +253,26 @@ const ItineraryDetailPage: React.FC = () => {
           style: formData?.travelStyle
         },
         totalCost: {
-          total_estimated: result.total_cost || tripSummary.total_cost || 0,
+          total_estimated: totalEstimated, // Base total
           currency: 'VND',
-          breakdown: tripSummary.cost_breakdown || null
+          breakdown: {
+            accommodation: accommodationCost,
+            activities: activitiesCost,
+            food: foodCost,
+            transport: transportCost,
+            other: otherCost
+          },
+          // Extended fields for BudgetSummary
+          per_person: perPerson,
+          contingency: contingency,
+          within_budget: isWithinBudget,
+          savings_suggestions: tripSummary.savings_suggestions || [
+            "Đặt phòng sớm để có giá tốt nhất",
+            "Sử dụng phương tiện công cộng khi có thể",
+            "Ăn tại các quán địa phương thay vì nhà hàng sang trọng"
+          ]
         },
-        hotels: locationState?.selectedHotelData
-          ? [locationState.selectedHotelData]  // Full hotel object from hotel agent
-          : (locationState?.selectedHotel ? [{
-            name: locationState.selectedHotel,
-            address: locationState.formData?.destination,
-            rating: 4.5,
-            price_per_night: 0
-          }] : []),
+        hotels: hotelData ? [hotelData] : [],
         // New: Hero image
         heroImage: tripOverview.hero_image || null,
         // New: Packing checklist
@@ -489,9 +558,12 @@ const ItineraryDetailPage: React.FC = () => {
     endDate = safeDate(itinerary.endDate);
     duration = startDate && endDate ? `${startDate} - ${endDate}` : '';
 
-    userBudget = itinerary.generationParams?.budget ?
+    const travelers = parseInt(itinerary.generationParams?.travelers || '1');
+    const perPersonBudget = itinerary.generationParams?.budget ?
       (itinerary.generationParams.budget === 'budget' ? 2000000 :
-        itinerary.generationParams.budget === 'mid-range' ? 3500000 : 6000000) : null;
+        itinerary.generationParams.budget === 'mid-range' ? 3500000 : 6000000) : 0;
+
+    userBudget = perPersonBudget * travelers;
 
     // Daily Plan Logic
     if (itinerary.dailyPlan) {
@@ -616,6 +688,11 @@ const ItineraryDetailPage: React.FC = () => {
               />
             )}
 
+            {/* Selected Tours Section */}
+            {locationState?.selectedToursData && locationState.selectedToursData.length > 0 && (
+              <SelectedToursSection tours={locationState.selectedToursData} />
+            )}
+
             {/* Hotel Section */}
             {itinerary.hotels && itinerary.hotels.length > 0 && (
               <HotelSection
@@ -630,6 +707,7 @@ const ItineraryDetailPage: React.FC = () => {
               <BudgetSummary
                 budget={itinerary.totalCost}
                 userBudget={userBudget}
+                budgetExplanation={`Dựa trên ${safeCurrency((userBudget || 0) / parseInt(itinerary.generationParams?.travelers || '1'))}/người x ${itinerary.generationParams?.travelers || 1} người`}
               />
             )}
 

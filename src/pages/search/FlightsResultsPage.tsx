@@ -10,8 +10,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { IFlight, mockFlights } from '@/data/mockFlights';
-import { useBooking, PreBookingDetails } from '@/context/BookingContext';
-import { airlineLogoMap } from '@/components/flights/FlightCard';
+
 
 type SortBy = 'relevance' | 'price_asc' | 'price_desc' | 'departure_asc';
 const sortOptions: { value: SortBy; label: string }[] = [
@@ -27,7 +26,6 @@ const FlightsResultsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { initiateBooking } = useBooking();
   const [isLoading, setIsLoading] = useState(true);
   const [filteredFlights, setFilteredFlights] = useState<IFlight[]>([]);
   const [totalResults, setTotalResults] = useState(0);
@@ -193,24 +191,9 @@ const FlightsResultsPage = () => {
                         key={flight.id}
                         flight={flight}
                         onSelect={(f) => {
-                          const details: PreBookingDetails = {
-                            type: 'flight',
-                            title: `Vé máy bay ${f.origin.city} - ${f.destination.city}`,
-                            unitPrice: f.price,
-                            clientComputedTotal: f.price, // Start with 1 pax
-                            participantsTotal: 1,
-                            image: airlineLogoMap[f.airline],
-                            airline: f.airline,
-                            flightNumber: f.flightNumber,
-                            origin: { ...f.origin, time: f.departureTime },
-                            destination: { ...f.destination, time: f.arrivalTime },
-                            duration: f.duration,
-                            stops: f.stops,
-                            class: f.class,
-                            bookingDate: date || new Date().toISOString()
-                          };
-                          initiateBooking(details);
-                          navigate('/checkout');
+                          // Navigate to detail page instead of direct checkout
+                          // Pass specific departure time and date
+                          navigate(`/transport/${f.id}?date=${date}&time=${f.departureTime}`);
                         }}
                       />
                     ))}

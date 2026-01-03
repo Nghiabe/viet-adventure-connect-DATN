@@ -335,9 +335,14 @@ const RichContentRenderer = ({ content, onImageClick, onTripBookClick }: { conte
 // --- Main Component ---
 
 import { Maximize2, Minimize2, MoveDiagonal } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 const AIFloatingWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+
+
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -551,6 +556,11 @@ const AIFloatingWidget = () => {
   const wizardModal = (
     <AIWizardModal isOpen={showWizard} onClose={() => setShowWizard(false)} />
   );
+
+  // Hide widget on dashboard routes (Partner/Admin side)
+  if (location.pathname.startsWith('/dashboard')) {
+    return null;
+  }
 
   if (!isOpen) {
     return (
@@ -773,4 +783,12 @@ const AIFloatingWidget = () => {
   );
 };
 
-export default AIFloatingWidget;
+import ErrorBoundary from "@/components/common/ErrorBoundary";
+
+const AIFloatingWidgetWrapper = () => (
+  <ErrorBoundary componentName="AI Assistant">
+    <AIFloatingWidget />
+  </ErrorBoundary>
+);
+
+export default AIFloatingWidgetWrapper;

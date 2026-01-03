@@ -274,7 +274,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
         // 2. Fetch Bookings for these tours
         const bookings = await Booking.find({
             tour: { $in: tourIds },
-            createdAt: { $gte: past }
+            createdAt: { $gte: past },
+            status: { $ne: 'provisional' } // Exclude chat inquiries from stats
         })
             .populate('user', 'name email')
             .populate('tour', 'title')
@@ -563,6 +564,8 @@ router.get('/bookings', requireAuth, async (req, res) => {
 
         if (status && status !== 'all') {
             query.status = status;
+        } else {
+            query.status = { $ne: 'provisional' };
         }
 
         // Filter by specific product (tour OR service)

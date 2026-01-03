@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Story from '../models/Story.js';
 import User from '../models/User.js';
+import Comment from '../models/Comment.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -185,6 +186,44 @@ router.post('/stories/:id/like', requireAuth, async (req, res) => {
         res.json({ success: true, likeCount: story.likeCount, isLiked: !alreadyLiked });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/stories/:id/comments - Get comments for a story
+router.get('/stories/:id/comments', async (req, res) => {
+    try {
+        const comments = await Comment.find({ story: req.params.id })
+            .sort({ createdAt: -1 })
+            .populate('author', 'name avatar')
+            .lean();
+
+        res.json({ success: true, data: comments });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// POST /api/stories/:id/comments - Add a comment
+router.post('/stories/:id/comments', requireAuth, async (req, res) => {
+    try {
+        const { content } = req.body;
+        if (!content) return res.status(400).json({ error: 'Content is required' });
+
+        const story = await Story.findById(req.params.id);
+        if (!story) return res.status(404).json({ error: 'Story not found' });
+
+        const newComment = new Comment({
+            content,
+            story: req.params.id,
+            author: req.user.userId
+        });
+
+        await newComment.save();
+        await newComment.populate('author', 'name avatar');
+
+        res.status(201).json({ success: true, data: newComment });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 

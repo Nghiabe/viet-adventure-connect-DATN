@@ -10,6 +10,9 @@ interface BudgetBreakdown {
   food: number;
   transport: number;
   other?: number;
+  // Index signature to allow for custom properties like 'attractions' during normalization if needed, 
+  // though we handle it in code.
+  [key: string]: number | undefined;
 }
 
 interface BudgetSummaryData {
@@ -24,11 +27,12 @@ interface BudgetSummaryData {
 interface BudgetSummaryProps {
   budget: BudgetSummaryData | null;
   userBudget?: number | null;
+  budgetExplanation?: string;
 }
 
 const COLORS = ['#f97316', '#3b82f6', '#10b981', '#8b5cf6', '#6b7280'];
 
-export const BudgetSummary: React.FC<BudgetSummaryProps> = ({ budget, userBudget }) => {
+export const BudgetSummary: React.FC<BudgetSummaryProps> = ({ budget, userBudget, budgetExplanation }) => {
   if (!budget) {
     return (
       <Card className="shadow-md">
@@ -131,7 +135,7 @@ export const BudgetSummary: React.FC<BudgetSummaryProps> = ({ budget, userBudget
           </div>
           {contingency > 0 && (
             <div className="text-xs text-muted-foreground">
-              + Dự phòng {contingency.toLocaleString('vi-VN')} ₫ (15%) ={' '}
+              + Dự phòng {contingency.toLocaleString('vi-VN')} ₫ (10%) ={' '}
               <span className="font-medium">{totalWithContingency.toLocaleString('vi-VN')} ₫</span>
             </div>
           )}
@@ -144,23 +148,30 @@ export const BudgetSummary: React.FC<BudgetSummaryProps> = ({ budget, userBudget
 
         {/* Budget comparison */}
         {userBudget && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-            {within_budget ? (
-              <>
-                <TrendingDown className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-600">
-                  Trong ngân sách (còn dư{' '}
-                  {(userBudget - totalWithContingency).toLocaleString('vi-VN')} ₫)
-                </span>
-              </>
-            ) : (
-              <>
-                <AlertCircle className="h-4 w-4 text-red-600" />
-                <span className="text-sm text-red-600">
-                  Vượt ngân sách{' '}
-                  {(totalWithContingency - userBudget).toLocaleString('vi-VN')} ₫
-                </span>
-              </>
+          <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center gap-2">
+              {within_budget ? (
+                <>
+                  <TrendingDown className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-600">
+                    Trong ngân sách (còn dư{' '}
+                    {(userBudget - totalWithContingency).toLocaleString('vi-VN')} ₫)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <span className="text-sm text-red-600">
+                    Vượt ngân sách{' '}
+                    {(totalWithContingency - userBudget).toLocaleString('vi-VN')} ₫
+                  </span>
+                </>
+              )}
+            </div>
+            {budgetExplanation && (
+              <p className="text-xs text-muted-foreground pl-6">
+                {budgetExplanation}
+              </p>
             )}
           </div>
         )}
@@ -180,7 +191,7 @@ export const BudgetSummary: React.FC<BudgetSummaryProps> = ({ budget, userBudget
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {chartData.map((entry, index) => (
+                  {chartData.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -278,6 +289,3 @@ export const BudgetSummary: React.FC<BudgetSummaryProps> = ({ budget, userBudget
     </Card>
   );
 };
-
-
-

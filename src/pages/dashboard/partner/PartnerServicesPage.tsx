@@ -423,10 +423,15 @@ export default function PartnerServicesPage() {
                                         <Label htmlFor="price">Giá cơ bản (VND) <span className="text-red-500">*</span></Label>
                                         <Input
                                             id="price"
-                                            type="number"
+                                            type="text"
                                             placeholder="0"
-                                            value={newItem.price || ''}
-                                            onChange={(e) => setNewItem({ ...newItem, price: Number(e.target.value) })}
+                                            value={newItem.price ? new Intl.NumberFormat('vi-VN').format(newItem.price) : ''}
+                                            onChange={(e) => {
+                                                const rawValue = e.target.value.replace(/\./g, '');
+                                                if (!isNaN(Number(rawValue))) {
+                                                    setNewItem({ ...newItem, price: Number(rawValue) });
+                                                }
+                                            }}
                                         />
                                     </div>
                                 </div>
@@ -709,10 +714,15 @@ export default function PartnerServicesPage() {
                                         <div className="col-span-4 md:col-span-3 space-y-1.5">
                                             <Label className="text-xs">Giá {activeTab === 'hotel' ? 'mỗi đêm' : 'mỗi vé'}</Label>
                                             <Input
-                                                type="number"
+                                                type="text"
                                                 placeholder="0"
-                                                value={tempRoom.price || ''}
-                                                onChange={(e) => setTempRoom({ ...tempRoom, price: Number(e.target.value) })}
+                                                value={tempRoom.price ? new Intl.NumberFormat('vi-VN').format(tempRoom.price) : ''}
+                                                onChange={(e) => {
+                                                    const rawValue = e.target.value.replace(/\./g, '');
+                                                    if (!isNaN(Number(rawValue))) {
+                                                        setTempRoom({ ...tempRoom, price: Number(rawValue) });
+                                                    }
+                                                }}
                                                 className="bg-background"
                                             />
                                         </div>

@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Heart, MessageSquare, Share2, ArrowLeft, Calendar, Eye } from 'lucide-react';
 import { Header } from "@/components/home/Header";
 import { Footer } from "@/components/home/Footer";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 interface Story {
     _id: string;
@@ -20,6 +20,7 @@ interface Story {
     tags: string[];
     likeCount: number;
     views: number;
+    likes?: string[];
     createdAt: string;
     author: {
         _id: string;
@@ -32,28 +33,135 @@ const StoryDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { isAuthenticated, user } = useAuth();
 
+    // State for interactive features
+    const [likes, setLikes] = useState<string[]>([]);
+    const [likeCount, setLikeCount] = useState(0);
+    const [comments, setComments] = useState<any[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+    // Fetch story and comments
     const { data, isLoading, error } = useQuery({
         queryKey: ['story', id],
         queryFn: async () => {
-            // Assuming a GET endpoint exists for fetching a single story
-            // If not, we might need to rely on the list or create the endpoint.
-            // Based on previous work, I haven't seen a specific GET /stories/:id in `community.js` yet.
-            // I should probably add that or check if I can fetch from the list cache?
-            // For now, let's assume the endpoint exists or use a mock if needed.
-            // Wait, I created community.js, let me check what I added.
-            // I added GET /hub and POST /stories. I did NOT add GET /stories/:id.
-            // So this query will fail unless I implement it.
-            // But the user just asked to move to the page. 
-            // I will implement the UI first and maybe mocking the data or implementing the endpoint next.
-            // Actually, I can implement the endpoint quickly.
-            const response = await apiClient.get<Story>(`/stories/${id}`);
-            if (!response.success || !response.data) {
-                throw new Error(response.error || 'Failed to load story');
+            const [storyRes, commentsRes] = await Promise.all([
+                apiClient.get<Story>(`/stories/${id}`),
+                apiClient.get<{ data: any[] }>(`/stories/${id}/comments`).catch(() => ({ data: [] }))
+            ]);
+
+            if (!storyRes.success || !storyRes.data) {
+                throw new Error(storyRes.error || 'Failed to load story');
             }
-            return response.data;
+
+            return { story: storyRes.data, comments: commentsRes.data || [] };
         }
     });
+
+    // Update local state when data is loaded
+    useEffect(() => {
+        if (data?.story) {
+            setLikes(data.story.likes || []);
+            setLikeCount(data.story.likeCount || 0);
+            setComments(data.comments || []);
+        }
+    }, [data]);
+
+    const isLiked = user ? likes.includes(user.userId || user._id) : false;
+
+    const handleLike = async () => {
+        if (!isAuthenticated) {
+            toast({
+                title: "Thông báo",
+                description: "Vui lòng đăng nhập để thích bài viết",
+                variant: "default"
+            });
+            return;
+        }
+
+        // Optimistic update
+        const previousLikes = [...likes];
+        const previousCount = likeCount;
+
+        if (isLiked) {
+            setLikes(likes.filter(uid => uid !== (user?.userId || user?._id)));
+            setLikeCount(prev => prev - 1);
+        } else {
+            setLikes([...likes, (user?.userId || user?._id) as string]);
+            setLikeCount(prev => prev + 1);
+        }
+
+        try {
+            const res = await apiClient.post<{ success: boolean, likeCount: number, isLiked: boolean }>(`/stories/${id}/like`);
+            if (res.success) {
+                setLikeCount(res.likeCount);
+            } else {
+                // Revert on failure
+                setLikes(previousLikes);
+                setLikeCount(previousCount);
+            }
+        } catch (error) {
+            setLikes(previousLikes);
+            setLikeCount(previousCount);
+            console.error("Like error", error);
+        }
+    };
+
+    const handleCommentSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isAuthenticated) {
+            toast({ title: "Thông báo", description: "Vui lòng đăng nhập để bình luận", variant: "default" });
+            return;
+        }
+        if (!newComment.trim()) return;
+
+        setIsSubmittingComment(true);
+        try {
+            const res = await apiClient.post<{ success: boolean, data: any }>(`/stories/${id}/comments`, { content: newComment });
+            if (res.success && res.data) {
+                setComments([res.data, ...comments]);
+                setNewComment('');
+                toast({ title: "Thành công", description: "Đã đăng bình luận" });
+            }
+        } catch (error) {
+            console.error("Comment error", error);
+            toast({ title: "Lỗi", description: "Không thể đăng bình luận", variant: "destructive" });
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    const handleChat = async () => {
+        try {
+            if (!data?.story?._id) return;
+            const res = await apiClient.post<any>('/chat/inquiry', { storyId: data.story._id });
+            if (res.success && res.data) {
+                navigate(`/chat/${res.data.bookingId}`);
+            } else {
+                if ((res as any).error === 'Authentication required' || (res as any).statusCode === 401) {
+                    navigate('/login');
+                } else {
+                    toast({
+                        title: "Lỗi",
+                        description: (res as any).error || "Không thể tạo cuộc trò chuyện",
+                        variant: "destructive"
+                    });
+                }
+            }
+        } catch (error: any) {
+            console.error("Chat error", error);
+            if (error.status === 401) {
+                navigate('/login');
+            } else {
+                toast({
+                    title: "Lỗi",
+                    description: "Không thể kết nối máy chủ",
+                    variant: "destructive"
+                });
+            }
+        }
+    };
 
     if (isLoading) {
         return (
@@ -85,7 +193,7 @@ const StoryDetailPage = () => {
         );
     }
 
-    if (error || !data) {
+    if (error || !data || !data.story) {
         return (
             <div className="min-h-screen bg-secondary">
                 <Header />
@@ -101,39 +209,7 @@ const StoryDetailPage = () => {
         );
     }
 
-    const story = data;
-    console.log('[StoryDetail] Rendering story:', story);
-
-    const handleChat = async () => {
-        try {
-            if (!story?._id) return;
-            const res = await apiClient.post<any>('/chat/inquiry', { storyId: story._id });
-            if (res.success && res.data) {
-                navigate(`/chat/${res.data.bookingId}`);
-            } else {
-                if ((res as any).error === 'Authentication required' || (res as any).statusCode === 401) {
-                    navigate('/login');
-                } else {
-                    toast({
-                        title: "Lỗi",
-                        description: (res as any).error || "Không thể tạo cuộc trò chuyện",
-                        variant: "destructive"
-                    });
-                }
-            }
-        } catch (error: any) {
-            console.error("Chat error", error);
-            if (error.status === 401) {
-                navigate('/login');
-            } else {
-                toast({
-                    title: "Lỗi",
-                    description: "Không thể kết nối máy chủ",
-                    variant: "destructive"
-                });
-            }
-        }
-    };
+    const { story } = data;
 
     return (
         <div className="min-h-screen bg-secondary">
@@ -145,7 +221,7 @@ const StoryDetailPage = () => {
                     </Button>
 
                     <article className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800">
-                        {story?.coverImage && (
+                        {story.coverImage && (
                             <div className="relative h-[400px] w-full">
                                 <img
                                     src={story.coverImage}
@@ -160,7 +236,7 @@ const StoryDetailPage = () => {
 
                         <div className="p-8">
                             <div className="flex flex-wrap gap-2 mb-6">
-                                {(story?.tags || []).map((tag, index) => (
+                                {(story.tags || []).map((tag, index) => (
                                     <Badge key={index} variant="secondary" className="px-3 py-1 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 border-none">
                                         #{tag}
                                     </Badge>
@@ -168,25 +244,25 @@ const StoryDetailPage = () => {
                             </div>
 
                             <h1 className="text-4xl font-bold mb-6 text-gray-900 dark:text-gray-100 leading-tight">
-                                {story?.title || 'Không có tiêu đề'}
+                                {story.title || 'Không có tiêu đề'}
                             </h1>
 
                             <div className="flex items-center justify-between mb-8 pb-8 border-b border-gray-100 dark:border-gray-800">
                                 <div className="flex items-center gap-4">
                                     <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
-                                        <AvatarImage src={story?.author?.avatar} alt={story?.author?.name} />
-                                        <AvatarFallback>{story?.author?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                        <AvatarImage src={story.author?.avatar} alt={story.author?.name} />
+                                        <AvatarFallback>{story.author?.name?.charAt(0) || 'U'}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{story?.author?.name || 'Tác giả ẩn danh'}</h3>
+                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{story.author?.name || 'Tác giả ẩn danh'}</h3>
                                         <div className="flex items-center text-sm text-gray-500 gap-4">
                                             <span className="flex items-center">
                                                 <Calendar className="w-4 h-4 mr-1" />
-                                                {story?.createdAt ? new Date(story.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                                                {story.createdAt ? new Date(story.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                                             </span>
                                             <span className="flex items-center">
                                                 <Eye className="w-4 h-4 mr-1" />
-                                                {story?.views || 0} lượt xem
+                                                {story.views || 0} lượt xem
                                             </span>
                                         </div>
                                     </div>
@@ -199,24 +275,87 @@ const StoryDetailPage = () => {
                                     >
                                         <MessageSquare className="w-4 h-4" /> Nhắn tin
                                     </Button>
-                                    <Button variant="outline" size="sm" className="gap-2 rounded-full">
+                                    <Button onClick={() => window.location.href = `mailto:?subject=${story.title}&body=${window.location.href}`} variant="outline" size="sm" className="gap-2 rounded-full">
                                         <Share2 className="w-4 h-4" /> Chia sẻ
                                     </Button>
                                 </div>
                             </div>
 
-                            <div className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                                {story?.content || 'Nội dung đang được cập nhật...'}
-                            </div>
+                            <div
+                                className="prose prose-lg dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed"
+                                dangerouslySetInnerHTML={{ __html: story.content || '<p>Nội dung đang được cập nhật...</p>' }}
+                            />
 
-                            <div className="mt-10 pt-8 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                                <div className="flex gap-4">
-                                    <Button variant="ghost" className="gap-2 text-red-500 hover:text-red-600 hover:bg-red-50">
-                                        <Heart className="w-5 h-5" /> {story?.likeCount || 0} Yêu thích
+                            <div className="mt-10 pt-8 border-t border-gray-100 dark:border-gray-800">
+                                <div className="flex items-center gap-4 mb-8">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={handleLike}
+                                        className={`gap-2 ${isLiked ? 'text-red-500 bg-red-50 hover:bg-red-100' : 'text-gray-600 hover:bg-gray-100'}`}
+                                    >
+                                        <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+                                        {likeCount} Yêu thích
                                     </Button>
-                                    <Button variant="ghost" className="gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100">
-                                        <MessageSquare className="w-5 h-5" /> Bình luận
-                                    </Button>
+                                    <div className="flex items-center gap-2 text-gray-600">
+                                        <MessageSquare className="w-5 h-5" /> {comments.length} Bình luận
+                                    </div>
+                                </div>
+
+                                {/* Comments List */}
+                                <div className="space-y-6">
+                                    <h3 className="text-xl font-bold">Bình luận</h3>
+
+                                    {/* Comment Input */}
+                                    {isAuthenticated ? (
+                                        <form onSubmit={handleCommentSubmit} className="flex gap-4 items-start">
+                                            <Avatar className="w-10 h-10">
+                                                <AvatarImage src={user?.avatar} />
+                                                <AvatarFallback>{user?.name?.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 space-y-2">
+                                                <textarea
+                                                    className="w-full p-3 border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                    placeholder="Viết bình luận của bạn..."
+                                                    rows={3}
+                                                    value={newComment}
+                                                    onChange={(e) => setNewComment(e.target.value)}
+                                                />
+                                                <div className="flex justify-end">
+                                                    <Button type="submit" disabled={isSubmittingComment || !newComment.trim()}>
+                                                        {isSubmittingComment ? 'Đang gửi...' : 'Gửi bình luận'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <div className="bg-gray-50 p-4 rounded-xl text-center">
+                                            <p className="text-muted-foreground mb-2">Vui lòng đăng nhập để bình luận</p>
+                                            <Button variant="outline" onClick={() => navigate('/login')}>Đăng nhập ngay</Button>
+                                        </div>
+                                    )}
+
+                                    {/* Comments Feed */}
+                                    <div className="space-y-6 mt-6">
+                                        {comments.length > 0 ? (
+                                            comments.map((comment: any) => (
+                                                <div key={comment._id} className="flex gap-4">
+                                                    <Avatar className="w-10 h-10">
+                                                        <AvatarImage src={comment.author?.avatar} />
+                                                        <AvatarFallback>{comment.author?.name?.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="flex-1 bg-gray-50 dark:bg-gray-800 p-4 rounded-xl">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <h4 className="font-semibold">{comment.author?.name || 'Người dùng ẩn danh'}</h4>
+                                                            <span className="text-xs text-muted-foreground">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</span>
+                                                        </div>
+                                                        <p className="text-gray-700 dark:text-gray-300">{comment.content}</p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-center text-muted-foreground py-4">Chưa có bình luận nào. Hãy là người đầu tiên bình luận!</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

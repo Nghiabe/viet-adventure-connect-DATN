@@ -27,6 +27,7 @@ const destinationSchema = z.object({
   mainImage: z.string().optional(),
   imageGallery: z.array(z.string()).default([]),
   bestTimeToVisit: z.array(z.string()).default([]),
+  essentialTips: z.array(z.string()).default([]),
   status: z.enum(['draft', 'published']).default('draft'),
 });
 
@@ -39,14 +40,14 @@ interface DestinationFormProps {
   mode?: 'create' | 'edit';
 }
 
-const DestinationForm: React.FC<DestinationFormProps> = ({ 
-  initialData, 
-  onSubmit, 
+const DestinationForm: React.FC<DestinationFormProps> = ({
+  initialData,
+  onSubmit,
   isLoading = false,
   mode = 'edit'
 }) => {
   const { t } = useTranslation();
-  
+
   const {
     register,
     handleSubmit,
@@ -65,6 +66,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
       mainImage: initialData?.mainImage || '',
       imageGallery: initialData?.imageGallery || [],
       bestTimeToVisit: initialData?.bestTimeToVisit || [],
+      essentialTips: initialData?.essentialTips || [],
       status: initialData?.status || 'draft'
     }
   });
@@ -72,19 +74,20 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
   const watchedName = watch('name');
 
   // Month options for best time to visit
+  // Month options for best time to visit - Saving in Vietnamese as requested
   const monthOptions = [
-    { value: 'january', label: t('common.months.january') },
-    { value: 'february', label: t('common.months.february') },
-    { value: 'march', label: t('common.months.march') },
-    { value: 'april', label: t('common.months.april') },
-    { value: 'may', label: t('common.months.may') },
-    { value: 'june', label: t('common.months.june') },
-    { value: 'july', label: t('common.months.july') },
-    { value: 'august', label: t('common.months.august') },
-    { value: 'september', label: t('common.months.september') },
-    { value: 'october', label: t('common.months.october') },
-    { value: 'november', label: t('common.months.november') },
-    { value: 'december', label: t('common.months.december') },
+    { value: 'Tháng 1', label: 'Tháng 1' },
+    { value: 'Tháng 2', label: 'Tháng 2' },
+    { value: 'Tháng 3', label: 'Tháng 3' },
+    { value: 'Tháng 4', label: 'Tháng 4' },
+    { value: 'Tháng 5', label: 'Tháng 5' },
+    { value: 'Tháng 6', label: 'Tháng 6' },
+    { value: 'Tháng 7', label: 'Tháng 7' },
+    { value: 'Tháng 8', label: 'Tháng 8' },
+    { value: 'Tháng 9', label: 'Tháng 9' },
+    { value: 'Tháng 10', label: 'Tháng 10' },
+    { value: 'Tháng 11', label: 'Tháng 11' },
+    { value: 'Tháng 12', label: 'Tháng 12' },
   ];
 
   // Auto-generate slug from name
@@ -123,6 +126,14 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
     setValue('bestTimeToVisit', value);
   };
 
+  // Handle essential tips change
+  const handleEssentialTipsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    // Split by newline and filter out empty strings
+    const tips = text.split('\n').filter(tip => tip.trim() !== '');
+    setValue('essentialTips', tips);
+  };
+
   const handleFormSubmit = (data: DestinationFormData) => {
     onSubmit(data);
   };
@@ -132,7 +143,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
       {/* Basic Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-200">Thông tin cơ bản</h3>
-        
+
         {/* Name */}
         <div>
           <Label htmlFor="name" className="text-gray-300">
@@ -184,7 +195,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
       {/* Detailed Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-200">Thông tin chi tiết</h3>
-        
+
         {/* History */}
         <div>
           <Label htmlFor="history" className="text-gray-300">
@@ -231,7 +242,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
       {/* Media */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-200">Hình ảnh</h3>
-        
+
         {/* Main Image */}
         <div>
           <Label className="text-gray-300">Hình ảnh chính</Label>
@@ -256,7 +267,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
       {/* Travel Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium text-gray-200">Thông tin du lịch</h3>
-        
+
         {/* Best Time to Visit */}
         <div>
           <Label className="text-gray-300">Thời gian tốt nhất để thăm</Label>
@@ -266,6 +277,21 @@ const DestinationForm: React.FC<DestinationFormProps> = ({
             onChange={handleBestTimeChange}
             placeholder="Chọn các tháng..."
             className="mt-1"
+          />
+        </div>
+
+        {/* Essential Tips (New Field) */}
+        <div>
+          <Label htmlFor="essentialTips" className="text-gray-300">
+            Mẹo hữu ích (Mỗi dòng một mẹo)
+          </Label>
+          <Textarea
+            id="essentialTips"
+            onChange={handleEssentialTipsChange}
+            defaultValue={initialData?.essentialTips?.join('\n') || ''}
+            className="mt-1 bg-gray-700 border-gray-600 text-white"
+            placeholder="- Mang theo ô dù vì thời tiết thay đổi thất thường\n- Nên đặt phòng trước vào mùa cao điểm..."
+            rows={5}
           />
         </div>
 

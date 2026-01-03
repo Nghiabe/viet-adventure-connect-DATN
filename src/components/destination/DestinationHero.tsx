@@ -19,7 +19,9 @@ export function DestinationHero({ images, title, subtitle }: DestinationHeroProp
 
   return (
     <div className="relative w-full">
-      <div className="absolute inset-0 z-10 bg-gradient-to-t from-background/80 via-background/20 to-transparent pointer-events-none" />
+      {/* Enhanced Gradient Overlay for Text Readability - Adjusted to be less intrusive */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+
       {hasImages ? (
         <Carousel className="w-full">
           <CarouselContent>
@@ -45,10 +47,12 @@ export function DestinationHero({ images, title, subtitle }: DestinationHeroProp
       )}
 
       <div className="pointer-events-none absolute inset-0 z-20 flex items-end">
-        <div className="container mx-auto px-4 pb-6 md:pb-10">
-          <h1 className="text-white drop-shadow-lg text-3xl md:text-5xl font-bold mb-2">{title}</h1>
+        <div className="container mx-auto px-4 pb-8 md:pb-12">
+          <h1 className="text-white drop-shadow-md text-3xl md:text-5xl font-bold mb-3">{title}</h1>
           {subtitle && (
-            <p className="max-w-3xl text-white/90 drop-shadow text-base md:text-lg">{subtitle}</p>
+            <p className="max-w-3xl text-gray-100/95 drop-shadow-md text-base md:text-lg leading-relaxed font-medium line-clamp-4">
+              {subtitle}
+            </p>
           )}
         </div>
       </div>

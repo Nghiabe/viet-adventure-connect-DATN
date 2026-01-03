@@ -146,12 +146,15 @@ export const AIWizardModal = ({ isOpen, onClose }: AIWizardModalProps) => {
       onClose(); // Close modal immediately
       toast({ title: "Thành công!", description: "Đang chuyển đến trang chi tiết lịch trình..." });
 
+      const selectedToursData = tours.filter(t => selectedTours.includes(t.tour_id));
+
       // Navigate to the beautiful result page
       navigate('/itinerary-detail', {
         state: {
           planResult: result,
           formData: formData,
           selectedTours: selectedTours,
+          selectedToursData: selectedToursData, // Pass full data
           selectedHotel: selectedHotel,
           selectedHotelData: selectedHotelData  // Full hotel object for display
         }

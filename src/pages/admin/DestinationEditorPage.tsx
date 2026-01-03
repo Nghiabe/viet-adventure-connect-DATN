@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import DestinationForm from '@/components/dashboard/destinations/DestinationForm';
 
 async function api<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers||{}) } });
+  const res = await fetch(input, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
   if (!res.ok) throw new Error(await res.text());
   return res.json() as any;
 }
@@ -17,6 +17,7 @@ export default function DestinationEditorPage() {
   const { slugOrId } = useParams();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch destination data
@@ -45,6 +46,7 @@ export default function DestinationEditorPage() {
       toast.success(t('toasts.update_success'));
       queryClient.invalidateQueries({ queryKey: ['destination', slugOrId] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'destinations'] });
+      navigate('/dashboard/destinations');
     },
     onError: (error: any) => {
       toast.error(error.message || t('toasts.generic_error'));
@@ -112,8 +114,8 @@ export default function DestinationEditorPage() {
       <div className="sticky top-0 z-10 bg-background border-b px-6 py-3 flex items-center gap-2">
         <div className="text-lg font-semibold flex-1">{t('admin_destinations.editor.title_edit')}</div>
         <Button variant="outline" onClick={handlePreview}>Xem trước</Button>
-        <Button 
-          className="bg-emerald-600 hover:bg-emerald-700" 
+        <Button
+          className="bg-emerald-600 hover:bg-emerald-700"
           onClick={handlePublish}
           disabled={publishMutation.isPending || destinationData.status === 'published'}
         >

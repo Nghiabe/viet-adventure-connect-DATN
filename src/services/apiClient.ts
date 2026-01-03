@@ -19,12 +19,17 @@ const normalizeEndpoint = (endpoint: string): string => {
   return `/${cleanEndpoint}`;
 };
 
+// Request options interface
+interface RequestOptions {
+  silent?: boolean;
+}
+
 // Centralized API client with robust error handling
 const apiClient = {
   /**
    * GET request with standardized error handling
    */
-  get: async <T>(endpoint: string): Promise<ApiResponse<T>> => {
+  get: async <T>(endpoint: string, options?: RequestOptions): Promise<ApiResponse<T>> => {
     // --- THE HARDENING LOGIC ---
     // Clean up the endpoint to remove any leading "/api" and ensure a single leading slash
     const normalizedEndpoint = normalizeEndpoint(endpoint);
@@ -64,7 +69,9 @@ const apiClient = {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error(`API Client Error (GET ${url}):`, error);
+      if (!options?.silent) {
+        console.error(`API Client Error (GET ${url}):`, error);
+      }
       throw error;
     }
   },

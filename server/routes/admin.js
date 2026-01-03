@@ -114,10 +114,11 @@ router.post('/destinations', async (req, res) => {
 
     } catch (error) {
         console.error('Error creating destination:', error);
+        console.error('Request Body:', req.body); // Debug Log
         if (error.code === 11000) {
             return res.status(400).json({ success: false, error: 'Duplicate key error (Slug likely exists)' });
         }
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: `Server Error: ${error.message}` });
     }
 });
 

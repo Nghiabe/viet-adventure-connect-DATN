@@ -40,7 +40,7 @@ interface Destination {
   _id: string;
   name: string;
   slug: string;
-  location: string;
+  location: string | { address: string };
   image?: string;
 }
 
@@ -156,43 +156,43 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
           {/* Cover Image */}
           <div className="space-y-2">
             <Label htmlFor="coverImage">Ảnh bìa *</Label>
-                         <Controller
-               name="coverImageUrl"
-               control={control}
-               render={({ field }) => (
-                 <ImageUploader
-                   value={field.value}
-                   onChange={(url) => {
-                     field.onChange(url);
-                   }}
-                   onUploadStart={() => setIsImageUploading(true)}
-                   onUploadEnd={() => setIsImageUploading(false)}
-                   onUploadSuccess={async (url) => {
-                     // --- THE CRITICAL FIX ---
-                     // 1. Update the form's state with the new URL.
-                     setValue('coverImageUrl', url, { shouldDirty: true });
-                     
-                     // 2. Manually trigger validation for THIS SPECIFIC FIELD.
-                     // This tells react-hook-form to re-evaluate the rules for
-                     // coverImageUrl now that it has a new, valid value.
-                     await trigger('coverImageUrl');
-                     // --- END CRITICAL FIX ---
+            <Controller
+              name="coverImageUrl"
+              control={control}
+              render={({ field }) => (
+                <ImageUploader
+                  value={field.value}
+                  onChange={(url) => {
+                    field.onChange(url);
+                  }}
+                  onUploadStart={() => setIsImageUploading(true)}
+                  onUploadEnd={() => setIsImageUploading(false)}
+                  onUploadSuccess={async (url) => {
+                    // --- THE CRITICAL FIX ---
+                    // 1. Update the form's state with the new URL.
+                    setValue('coverImageUrl', url, { shouldDirty: true });
 
-                     // Also update the field for the Controller
-                     field.onChange(url);
-                     setIsImageUploading(false);
-                     
-                     // Show success feedback to user
-                     toast.success("Tải ảnh lên thành công!");
-                   }}
-                   onError={(error) => {
-                     console.error('Image upload error:', error);
-                     setIsImageUploading(false);
-                     toast.error(`Lỗi tải ảnh: ${error.message || 'Đã có lỗi xảy ra'}`);
-                   }}
-                 />
-               )}
-             />
+                    // 2. Manually trigger validation for THIS SPECIFIC FIELD.
+                    // This tells react-hook-form to re-evaluate the rules for
+                    // coverImageUrl now that it has a new, valid value.
+                    await trigger('coverImageUrl');
+                    // --- END CRITICAL FIX ---
+
+                    // Also update the field for the Controller
+                    field.onChange(url);
+                    setIsImageUploading(false);
+
+                    // Show success feedback to user
+                    toast.success("Tải ảnh lên thành công!");
+                  }}
+                  onError={(error) => {
+                    console.error('Image upload error:', error);
+                    setIsImageUploading(false);
+                    toast.error(`Lỗi tải ảnh: ${error.message || 'Đã có lỗi xảy ra'}`);
+                  }}
+                />
+              )}
+            />
             {errors.coverImageUrl && (
               <p className="text-sm text-destructive">{errors.coverImageUrl.message}</p>
             )}
@@ -216,13 +216,12 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               {errors.title && (
                 <p className="text-sm text-destructive">{errors.title.message}</p>
               )}
-              <p className={`text-xs ml-auto ${
-                watchedTitle.length > 180 
-                  ? 'text-red-500' 
-                  : watchedTitle.length > 150 
-                    ? 'text-amber-500' 
-                    : 'text-muted-foreground'
-              }`}>
+              <p className={`text-xs ml-auto ${watchedTitle.length > 180
+                ? 'text-red-500'
+                : watchedTitle.length > 150
+                  ? 'text-amber-500'
+                  : 'text-muted-foreground'
+                }`}>
                 {watchedTitle.length}/200
               </p>
             </div>
@@ -246,13 +245,12 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
               {errors.content && (
                 <p className="text-sm text-destructive">{errors.content.message}</p>
               )}
-              <p className={`text-xs ml-auto ${
-                watchedContent.length < 20 
-                  ? 'text-red-500' 
-                  : watchedContent.length < 50 
-                    ? 'text-amber-500' 
-                    : 'text-green-600'
-              }`}>
+              <p className={`text-xs ml-auto ${watchedContent.length < 20
+                ? 'text-red-500'
+                : watchedContent.length < 50
+                  ? 'text-amber-500'
+                  : 'text-green-600'
+                }`}>
                 {watchedContent.length} ký tự
                 {watchedContent.length < 20 && ` (cần ít nhất 20)`}
               </p>
@@ -309,7 +307,7 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
                             <div className="font-medium">{destination.name}</div>
                             <div className="text-sm text-muted-foreground flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
-                              {destination.location}
+                              {typeof destination.location === 'object' ? destination.location.address : destination.location}
                             </div>
                           </div>
                         </button>
@@ -423,17 +421,16 @@ const CreateStoryModal: React.FC<CreateStoryModalProps> = ({
             >
               Hủy
             </Button>
-                                     <Button
+            <Button
               type="submit"
               disabled={!isValid || isSubmitting || isImageUploading}
-              className={`min-w-[120px] transition-all duration-200 ${
-                !isValid && isDirty 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : 'hover:scale-105'
-              }`}
+              className={`min-w-[120px] transition-all duration-200 ${!isValid && isDirty
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:scale-105'
+                }`}
               title={
-                !isValid && isDirty 
-                  ? 'Vui lòng hoàn thiện tất cả các trường bắt buộc' 
+                !isValid && isDirty
+                  ? 'Vui lòng hoàn thiện tất cả các trường bắt buộc'
                   : 'Chia sẻ câu chuyện của bạn'
               }
             >

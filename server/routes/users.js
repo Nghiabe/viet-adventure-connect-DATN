@@ -18,9 +18,12 @@ router.get('/profile', requireAuth, async (req, res) => {
             return res.status(404).json({ success: false, error: 'User not found' });
         }
 
-        // 2. Fetch Journeys (Bookings)
-        // We want all bookings for this user, sorted by date
-        const bookings = await Booking.find({ user: userId })
+        // 2. Fetch Journeys (Bookings) - EXCLUDE provisional (Chat Inquiries)
+        // We want all real bookings for this user, sorted by date
+        const bookings = await Booking.find({
+            user: userId,
+            status: { $ne: 'provisional' } // Hide chat inquiries
+        })
             .sort({ bookingDate: -1 })
             .populate('tour', 'title mainImage slug destination') // Populate generic tour info
             .populate('partnerService', 'name image type') // Populate partner service info

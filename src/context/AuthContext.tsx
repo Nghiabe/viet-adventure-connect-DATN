@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkSession = useCallback(async () => {
     try {
       console.log('[AuthContext] Checking existing session...');
-      const response = await apiClient.get<IUser>('/auth/me');
+      const response = await apiClient.get<IUser>('/auth/me', { silent: true });
       if (response.success && response.data) {
         console.log('[AuthContext] Session restored for user:', response.data.email);
         setUser(response.data);
@@ -46,7 +46,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
       }
     } catch (error: any) {
-      console.log('[AuthContext] Session check failed:', error.message);
+      // Gracefully handle 401 (Unauthorized) which is expected for guests
+      if (error.response?.status === 401 || error.message?.includes('401')) {
+        console.log('[AuthContext] Guest user - no session active');
+      } else {
+        console.warn('[AuthContext] Session check failed:', error.message);
+      }
       setUser(null);
     } finally {
       setIsLoading(false);

@@ -29,7 +29,7 @@ export function getAuthUser(req: IncomingMessage): AuthenticatedUser | null {
 
     // 2. Parse the cookie string into an object.
     const cookies = parse(req.headers.cookie);
-    
+
     // 3. Get the specific authentication token. The name 'auth_token' MUST match
     // the name you used when setting the cookie in your login API.
     const token = cookies.auth_token;
@@ -44,7 +44,7 @@ export function getAuthUser(req: IncomingMessage): AuthenticatedUser | null {
     const decoded = verify(token, process.env.JWT_SECRET!) as AuthenticatedUser;
 
     console.log(`[${handlerName}] Token successfully verified for user ID: ${decoded.userId}`);
-    
+
     // 5. Return the decoded payload.
     return decoded;
 

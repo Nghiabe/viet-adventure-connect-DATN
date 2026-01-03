@@ -1,0 +1,13 @@
+Found 3 stories.
+Story ID: 68bbed9d90c9ccf39341badb, Title: Hà Nội 'Sau Tay Lái': Một Đêm No Nê Cùng Food Tour Xe Máy
+Author Field (Raw): 68ba4335c45be8ce94186920
+-> Author Found: Nguyễn Thị (68ba4335c45be8ce94186920)
+---
+Story ID: 694ed3bd4b4b774b1f3982b9, Title: Cẩm nang du lịch Đà Nẵng từ A-Z cho chuyến đi trọn vẹn nhất
+Author Field (Raw): 507f1f77bcf86cd799439011
+-> Author NOT FOUND in Users collection! ID: 507f1f77bcf86cd799439011
+---
+Story ID: 6957d3a11b2483fba850628a, Title: Top 5 "Thiên Đường" Ăn Vặt Giá Sinh Viên Tại Đà Nẵng Bạn Không Thể Bỏ Qua
+Author Field (Raw): 507f1f77bcf86cd799439011
+-> Author NOT FOUND in Users collection! ID: 507f1f77bcf86cd799439011
+---

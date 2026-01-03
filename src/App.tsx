@@ -60,8 +60,8 @@ const App = () => (
               <Route path="/pending-approval" element={<PendingApprovalPage />} />
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-              {/* Protected Routes - User & Partner */}
-              <Route element={<ProtectedRoute allowedRoles={['user', 'partner']} />}>
+              {/* Protected Routes - User & Partner & Admin & Staff */}
+              <Route element={<ProtectedRoute allowedRoles={['user', 'partner', 'admin', 'staff']} />}>
                 <Route path="/" element={<Index />} />
                 <Route path="/itinerary" element={<ItineraryResults />} />
                 <Route path="/itinerary/:id" element={<ItineraryResults />} />

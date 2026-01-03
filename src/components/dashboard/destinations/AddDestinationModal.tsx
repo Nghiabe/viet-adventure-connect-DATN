@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ const destinationSchema = z.object({
   mainImage: z.string().optional(),
   imageGallery: z.array(z.string()).default([]),
   bestTimeToVisit: z.array(z.string()).default([]),
+  essentialTips: z.array(z.string()).default([]),
   status: z.enum(['draft', 'published']).default('draft'),
 });
 
@@ -46,7 +47,7 @@ export default function AddDestinationModal({
   isLoading
 }: AddDestinationModalProps) {
   const { t } = useTranslation();
-  
+
   const {
     register,
     handleSubmit,
@@ -66,26 +67,35 @@ export default function AddDestinationModal({
       mainImage: '',
       imageGallery: [],
       bestTimeToVisit: [],
+      essentialTips: [],
       status: 'draft'
     }
   });
 
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      reset();
+    }
+  }, [isOpen, reset]);
+
   const watchedName = watch('name');
 
   // Month options for best time to visit
+  // Month options for best time to visit - Saving in Vietnamese as requested
   const monthOptions = [
-    { value: 'january', label: t('common.months.january') },
-    { value: 'february', label: t('common.months.february') },
-    { value: 'march', label: t('common.months.march') },
-    { value: 'april', label: t('common.months.april') },
-    { value: 'may', label: t('common.months.may') },
-    { value: 'june', label: t('common.months.june') },
-    { value: 'july', label: t('common.months.july') },
-    { value: 'august', label: t('common.months.august') },
-    { value: 'september', label: t('common.months.september') },
-    { value: 'october', label: t('common.months.october') },
-    { value: 'november', label: t('common.months.november') },
-    { value: 'december', label: t('common.months.december') },
+    { value: 'Tháng 1', label: 'Tháng 1' },
+    { value: 'Tháng 2', label: 'Tháng 2' },
+    { value: 'Tháng 3', label: 'Tháng 3' },
+    { value: 'Tháng 4', label: 'Tháng 4' },
+    { value: 'Tháng 5', label: 'Tháng 5' },
+    { value: 'Tháng 6', label: 'Tháng 6' },
+    { value: 'Tháng 7', label: 'Tháng 7' },
+    { value: 'Tháng 8', label: 'Tháng 8' },
+    { value: 'Tháng 9', label: 'Tháng 9' },
+    { value: 'Tháng 10', label: 'Tháng 10' },
+    { value: 'Tháng 11', label: 'Tháng 11' },
+    { value: 'Tháng 12', label: 'Tháng 12' },
   ];
 
   // Auto-generate slug from name
@@ -119,9 +129,16 @@ export default function AddDestinationModal({
     setValue('imageGallery', value);
   };
 
-  // Handle best time to visit change
   const handleBestTimeChange = (value: string[]) => {
     setValue('bestTimeToVisit', value);
+  };
+
+  // Handle essential tips change
+  const handleEssentialTipsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    // Split by newline and filter out empty strings
+    const tips = text.split('\n').filter(tip => tip.trim() !== '');
+    setValue('essentialTips', tips);
   };
 
   const handleFormSubmit = (data: DestinationFormData) => {
@@ -139,12 +156,12 @@ export default function AddDestinationModal({
         <DialogHeader>
           <DialogTitle>{t('admin_destinations.add_new_button')}</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">{t('admin_destinations.editor.basic_info')}</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">{t('admin_destinations.editor.name_label')} *</Label>
@@ -158,7 +175,7 @@ export default function AddDestinationModal({
                   <p className="text-sm text-red-600">{errors.name.message}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="slug">{t('admin_destinations.editor.slug_label')} *</Label>
                 <Input
@@ -171,7 +188,7 @@ export default function AddDestinationModal({
                 )}
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="description">{t('admin_destinations.editor.description_label')}</Label>
               <Textarea
@@ -181,7 +198,7 @@ export default function AddDestinationModal({
                 rows={3}
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="status">{t('admin_destinations.editor.status_label')}</Label>
@@ -195,7 +212,7 @@ export default function AddDestinationModal({
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="bestTimeToVisit">{t('admin_destinations.editor.best_time_label')}</Label>
                 <MultiSelect
@@ -206,8 +223,18 @@ export default function AddDestinationModal({
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="essentialTips">Mẹo hữu ích (Mỗi dòng một mẹo)</Label>
+              <Textarea
+                id="essentialTips"
+                onChange={handleEssentialTipsChange}
+                placeholder="- Mang theo ô dù vì thời tiết thay đổi thất thường\n- Nên đặt phòng trước vào mùa cao điểm..."
+                rows={4}
+              />
+            </div>
           </div>
-          
+
           {/* Media Management */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">{t('admin_destinations.editor.main_image_label')}</h3>
@@ -218,7 +245,7 @@ export default function AddDestinationModal({
               placeholder="Kéo thả ảnh chính vào đây hoặc click để chọn"
             />
           </div>
-          
+
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">{t('admin_destinations.editor.image_gallery_label')}</h3>
             <GalleryUploader
@@ -226,11 +253,11 @@ export default function AddDestinationModal({
               onChange={handleImageGalleryChange}
             />
           </div>
-          
+
           {/* Content Sections */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">{t('admin_destinations.editor.content_section_title')}</h3>
-            
+
             <div className="space-y-2">
               <Label htmlFor="history">{t('admin_destinations.editor.history_tab')}</Label>
               <Textarea
@@ -240,7 +267,7 @@ export default function AddDestinationModal({
                 rows={4}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="culture">{t('admin_destinations.editor.culture_tab')}</Label>
               <Textarea
@@ -250,7 +277,7 @@ export default function AddDestinationModal({
                 rows={4}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="geography">{t('admin_destinations.editor.geography_tab')}</Label>
               <Textarea
@@ -261,7 +288,7 @@ export default function AddDestinationModal({
               />
             </div>
           </div>
-          
+
           {/* Form Actions */}
           <div className="flex justify-end space-x-2 pt-4 border-t">
             <Button
@@ -281,6 +308,6 @@ export default function AddDestinationModal({
           </div>
         </form>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 }
